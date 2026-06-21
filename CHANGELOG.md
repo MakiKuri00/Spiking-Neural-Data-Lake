@@ -3,6 +3,33 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.13] — Paradigm B: in-storage spike-stream matcher (+ GeNN GPU port)
+Started Paradigm B (in-storage pattern matching, cf. NPUsearch): compile a query into
+an SNN, stream stored spikes through it, transfer only matches to the host.
+### Attempted: GeNN
+- Tried to build it on GeNN (genn-team) per request. GeNN code-generates C++/CUDA at
+  runtime, so it needs CUDA + a C++ compiler + pygenn — none present on this box
+  (`pygenn` has no installable wheel here, no `cl`/`gcc`/`nvcc` on PATH). So GeNN can't
+  run here; it's shipped as a ready GPU port for a CUDA box.
+### Added
+- `paradigm_b_matcher.py` (stdlib, **verified CPU reference**): compiles a query
+  (template channels + coincidence window W + min coincident k) into a LIF coincidence
+  detector, reads ONLY the template channels from the v0.12 `.spk` store (partial seek),
+  and streams them through the detector, emitting a match per coincidence.
+- `paradigm_b_genn.py`: the same detector as a GeNN 5 / PyGeNN network
+  (SpikeSourceArray → LIF detector, output spikes = matches). Import-guarded so it
+  prints setup guidance and exits cleanly when GeNN isn't installed. Needs CUDA 12.8+
+  (RTX 5070 = Blackwell/sm_120) + a C++ compiler + pygenn.
+- `pygenn` added to requirements (optional, GPU box only).
+### Results (256-channel store, query = channels {7,99} coincide within 50 steps)
+- 639 matches emitted, **505 inside the injected burst window**.
+- Read **2.0% of the file** (only the 2 template channels) and emitted match stamps =
+  **162× less data to host** than streaming all 103k raw events.
+- Self-checks: partial-read matches == brute-force, burst detected, transfer reduced.
+### Roadmap status
+- Paradigm A complete (v0.12) · B started (v0.13, GeNN GPU port pending a CUDA box) ·
+  C started (v0.11 TTFS).
+
 ## [v0.12] — Spike Telemetry Hub (Paradigm A complete)
 Completes the assessment's Paradigm A: a hub for multi-channel spike-train telemetry
 (BCI / neural-sim style) stored and queried as sparse events, never dense rasters.

@@ -15,3 +15,8 @@ numpy
 # NOTE: BindsNET <=0.3 imports torch._six (removed in torch >=2.0); the runner
 # ships a built-in shim so it works on modern torch — no manual patching needed.
 bindsnet
+
+# v0.13 GPU port only — Paradigm B on GeNN (paradigm_b_genn.py). Needs a C++ compiler
+# + CUDA 12.8+ (RTX 5070 = Blackwell). The CPU reference (paradigm_b_matcher.py) needs
+# nothing. On a GPU box:  pip install pygenn
+pygenn
