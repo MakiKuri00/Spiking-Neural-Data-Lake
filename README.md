@@ -39,6 +39,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.9 | `eth_mnist_bindsnet.py` | **Path to ~95%** — wires in BindsNET's conductance-based Diehl & Cook | verified 100n/10k → **76.0%** (→82.9% full); 6400 → 95% (GPU) |
 | v0.10 | `eth_mnist_bindsnet.py` | **`--gpu` switch** — one-flag CUDA run; RTX 5070 (Blackwell) cu128 hint + CPU fallback | 6400→95% is now one switch on a GPU box |
 | v0.11 | `temporal_coding_storage.py` | **Temporal (TTFS) coding** — latency-coded inference, 1 spike/input + early exit | same 100% acc as rate, **83.5× fewer SynOps** |
+| v0.12 | `spike_telemetry_hub.py` | **Spike telemetry hub (Paradigm A)** — indexed sparse `.spk` store + partial-read windowed queries | **61× smaller** than dense raster; query reads 2% of file |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -67,6 +68,7 @@ python test_prototype.py                # capacity / noise sweeps
 python snn_classifier.py                # supervised spiking classifier
 python snn_moe_classifier.py            # spike-driven MoE routing
 python temporal_coding_storage.py       # TTFS latency coding (83x fewer ops than rate)
+python spike_telemetry_hub.py           # Paradigm A: sparse multi-channel spike-train store + queries
 
 # Real-data prototypes — need deps (CPU build is fine):
 pip install -r requirements.txt
@@ -118,7 +120,7 @@ treats them as a roadmap:
 
 | Paradigm | Idea | Status here |
 |---|---|---|
-| **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | partial — AER/event-list storage in `spiking_storage_prototype.py` |
+| **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | **complete (v0.12)** — `spike_telemetry_hub.py`: indexed `.spk` store, partial-read windowed queries, bin/rate/ISI/burst |
 | **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | roadmap — needs neuromorphic/NPU hardware |
 | **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started v0.11** — `temporal_coding_storage.py` (TTFS) |
 

@@ -3,6 +3,30 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.12] — Spike Telemetry Hub (Paradigm A complete)
+Completes the assessment's Paradigm A: a hub for multi-channel spike-train telemetry
+(BCI / neural-sim style) stored and queried as sparse events, never dense rasters.
+### Added
+- `spike_telemetry_hub.py` (stdlib):
+  - `SpikeTelemetryHub` — per-channel sorted spike-time store (AER).
+  - `.spk` file format with a per-channel index (offset+count) and a `disk_query`
+    that SEEKS to only the requested channels — windowed queries without loading the
+    whole dataset.
+  - windowed range query (binary search, O(log n + hits)), bin, firing-rate, ISI,
+    and a burst/anomaly detector.
+  - input validation + magic-byte file check on the persistence boundary.
+### Results (256 channels, 100k steps, ~104k spikes)
+- Sparse `.spk` = 418 KB vs **3.2 MB** (1-bit raster, 7.7×) vs **25.6 MB** (1-byte
+  raster, 61×).
+- Windowed query on 2 channels read **2.0% of the file** (8.5 KB) and matched a
+  brute-force scan exactly.
+- Injected burst detected by the rate-threshold detector.
+- Self-checks: save/load roundtrip intact, disk query == brute force, partial read,
+  sparse < dense, burst found.
+### Roadmap status
+- Paradigm A: **complete**. Paradigm C: started (v0.11 TTFS). Paradigm B (in-storage
+  NPU search): still hardware-dependent, out of scope.
+
 ## [v0.11] — Temporal (TTFS) coding, from the architectural assessment
 Acted on an external architectural assessment (Gemini). The assessment was produced
 WITHOUT repo access (speculative, name-based), so its applicable, on-theme ideas were
