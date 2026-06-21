@@ -43,6 +43,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.13 | `paradigm_b_matcher.py`, `paradigm_b_genn.py` | **Paradigm B** — compile query→coincidence-detector SNN, stream stored spikes, emit only matches; GeNN GPU port | CPU verified: reads 2% of store, **162× less** host transfer; GeNN for RTX 5070 |
 | v0.14 | `paradigm_b_genn.py`, `paradigm_b_matcher.py` | **Distinct-channel counting** — per-channel one-shot sub-detectors → counter (GeNN); CPU model + spam test | sub-detector rejects single-channel spam (0) where total-counter false-positives (2) |
 | v0.15 | `spike_preprocessing.py` | **Preprocessing pipeline** — deterministic latency encode, precompute+cache, Van Rossum filter for query matching | precompute **5.7× less encode work**; Van Rossum query→store match 100% |
+| v0.16 | `snn_mnist_stdp_fast.py` | **Latency vs rate STDP** — precomputed deterministic latency coding, head-to-head | **2.1× faster, 7.9× fewer SynOps**, but **−13.5 pts acc** (82.3→68.8%) |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -85,6 +86,9 @@ NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 python snn_mnist_stdp.py
 
 # Best STDP config found (v0.8) — tuned homeostasis -> 82.3%:
 NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp.py
+
+# v0.16 — latency vs rate head-to-head (precomputed deterministic latency coding):
+NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp_fast.py
 
 # v0.9 — the path to the literature ~95% (BindsNET conductance Diehl & Cook):
 pip install bindsnet

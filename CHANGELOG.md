@@ -3,6 +3,29 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.16] — Precomputed latency STDP vs rate STDP (head-to-head)
+Wires the v0.15 preprocessing (deterministic latency + precompute) into the real STDP
+model and compares it against the verified rate-coded path, in one process.
+### Added
+- `snn_mnist_stdp_fast.py` — `FastStdpNetwork`: same LIF + adaptive-threshold + hard-WTA
+  STDP, but driven by **precomputed deterministic latency spikes** (each pixel fires
+  once; no on-the-fly `torch.rand`). Runs the rate baseline (`StdpNetwork`) and the fast
+  net on the same MNIST subset and prints the comparison. Tunable: `FAST_THRESH`,
+  `FAST_LR` (latency traces are sparse → low threshold, high LR).
+### Comparison (M=300, 6k train, 2k test, same tuned homeostasis)
+| metric | rate (Poisson, on-the-fly) | fast (latency, precomputed) |
+|---|---|---|
+| accuracy | **82.3%** | 68.8% (−13.5 pts) |
+| train time | 47.3 s | **22.8 s** (2.1×) |
+| train SynOps | 1.95 B | **247 M** (7.9× fewer) |
+| encoding | stochastic | deterministic + cacheable |
+### Verdict (honest)
+- Precompute + latency coding is **2.1× faster, 7.9× fewer SynOps, and deterministic**
+  — but costs **~13.5 accuracy points** with this simple Hebbian STDP. A single-spike
+  latency code is a weaker presynaptic trace than rate coding's repeated spikes, so the
+  STDP learning signal is poorer. The rate path stays the default; the fast path is the
+  efficiency/reproducibility option. (The verified 82.3% rate result is untouched.)
+
 ## [v0.15] — Spike preprocessing pipeline (deterministic encode, precompute, Van Rossum)
 Implements three recommended preprocessing steps for CPU-viable STDP.
 ### Added
