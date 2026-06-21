@@ -37,6 +37,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.7 | (hardening) | **Fix the limitations** — factored O(P·k) storage, capacity sweep, optional inhibition population | assoc-mem **874× smaller**; capacity curve; inhibition benchmarked |
 | v0.8 | `snn_mnist_stdp.py`, `snn_mnist_dc.py` | **Inhibition study** — 3 inhibition designs benchmarked; tuned homeostasis | STDP **81.5% → 82.3%**; hard-WTA confirmed best |
 | v0.9 | `eth_mnist_bindsnet.py` | **Path to ~95%** — wires in BindsNET's conductance-based Diehl & Cook | verified 100n/10k → **76.0%** (→82.9% full); 6400 → 95% (GPU) |
+| v0.10 | `eth_mnist_bindsnet.py` | **`--gpu` switch** — one-flag CUDA run; RTX 5070 (Blackwell) cu128 hint + CPU fallback | 6400→95% is now one switch on a GPU box |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -77,8 +78,10 @@ NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_s
 
 # v0.9 — the path to the literature ~95% (BindsNET conductance Diehl & Cook):
 pip install bindsnet
-NORD_M=100 NORD_TRAIN=10000 NORD_TEST=2000 python eth_mnist_bindsnet.py   # ~76%, verifies wiring (minutes)
-python eth_mnist_bindsnet.py                                              # 6400 neurons -> ~95% (GPU/overnight)
+NORD_M=100 NORD_TRAIN=10000 NORD_TEST=2000 python eth_mnist_bindsnet.py   # ~76%, verifies wiring (CPU, minutes)
+python eth_mnist_bindsnet.py --gpu                                        # 6400 neurons -> ~95% (one switch, GPU)
+# RTX 5070 (Blackwell) GPU? install a CUDA 12.8+ torch first:
+#   pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
 Every script prints a metrics block and ends with a runnable `assert`-based

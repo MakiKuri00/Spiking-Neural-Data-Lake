@@ -3,6 +3,21 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.10] — `--gpu` switch for the BindsNET runner
+### Added
+- `--gpu` / `--device <dev>` flag (and `NORD_GPU=1` env) on `eth_mnist_bindsnet.py`:
+  moves the network + all tensors to CUDA so the 6400-neuron → ~95% run is one switch
+  on a GPU box. Defaults to CPU.
+- RTX 5070 (Blackwell, sm_120) guidance: if `--gpu` is requested but CUDA torch isn't
+  present, the runner prints the exact cu128 install command and falls back to CPU
+  (the default CPU/older-CUDA wheels have no sm_120 kernels).
+### Fixed
+- Dropped the `device=` kwarg from `Monitor(...)` (not accepted by the installed
+  BindsNET); `network.to(device)` moves the monitored layer's spikes instead.
+### Verified
+- Ran end-to-end with `--gpu` on this CPU box: prints the RTX 5070 hint, falls back to
+  CPU, trains + tests clean (device threading correct).
+
 ## [v0.9] — Path to ~95%: BindsNET conductance Diehl & Cook
 The v0.8 study showed our from-scratch current-based inhibition can't reach the
 literature ~95%. Deep research (Diehl & Cook 2015 + BindsNET) pinned the cause:

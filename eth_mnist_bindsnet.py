@@ -14,16 +14,25 @@ Constants from BindsNET examples/mnist/eth_mnist.py:
 COMPUTE WARNING: 6400 neurons over the full 60k train + 10k test is a multi-HOUR
 (CPU: likely overnight+) run. Verify the wiring fast first, e.g.:
     NORD_M=100 NORD_TRAIN=600 NORD_TEST=500 NORD_UPDATE=100 python eth_mnist_bindsnet.py
-Then the headline run (defaults, slow):
-    python eth_mnist_bindsnet.py            # 6400 neurons, 60k/10k
-Or a tractable midpoint (~87%, hours not overnight):
-    NORD_M=400 NORD_TRAIN=20000 NORD_TEST=5000 python eth_mnist_bindsnet.py
+Then the headline run on a GPU (one switch):
+    python eth_mnist_bindsnet.py --gpu      # 6400 neurons, 60k/10k -> ~95%
+Or a tractable midpoint (~87%):
+    NORD_M=400 NORD_TRAIN=20000 NORD_TEST=5000 python eth_mnist_bindsnet.py --gpu
+
+GPU notes:
+  --gpu (or --device cuda / NORD_GPU=1) moves the network + tensors to CUDA.
+  RTX 5070 = Blackwell (sm_120) -> needs a CUDA 12.8+ torch build; the default CPU
+  wheel has no sm_120 kernels. Install once on the GPU box:
+    pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
+  Then `python eth_mnist_bindsnet.py --gpu`. If CUDA isn't available the runner
+  prints this hint and falls back to CPU.
 
 Needs: pip install bindsnet  (torch._six shim below makes BindsNET<=0.3 run on torch>=2)
 """
 import os
 import sys
 import types
+import argparse
 import collections.abc
 import torch
 
@@ -51,6 +60,31 @@ def _ei(k, d):
     return int(v) if v else d
 
 
+def resolve_device():
+    """--gpu / --device flag (or NORD_GPU env). Falls back to CPU with a clear
+    RTX 5070 (Blackwell sm_120) install hint if CUDA torch isn't present."""
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("--gpu", action="store_true", help="run on CUDA GPU if available")
+    ap.add_argument("--device", default=None, help="explicit device, e.g. cuda / cuda:0 / cpu")
+    args, _ = ap.parse_known_args()
+    want_gpu = args.gpu or args.device not in (None, "cpu") or os.environ.get("NORD_GPU") == "1"
+    if args.device:
+        return args.device
+    if want_gpu:
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            print(f"GPU: {name}  (CUDA {torch.version.cuda}, torch {torch.__version__})")
+            return "cuda"
+        print("WARNING: --gpu requested but torch.cuda.is_available() is False.")
+        print("  This venv has the CPU torch build. For an RTX 5070 (Blackwell, sm_120)")
+        print("  install a CUDA 12.8+ build, e.g.:")
+        print("    pip install --force-reinstall torch torchvision \\")
+        print("      --index-url https://download.pytorch.org/whl/cu128")
+        print("  (older CUDA wheels lack sm_120 kernels and will fail on the 5070.)")
+        print("  Falling back to CPU.\n")
+    return "cpu"
+
+
 # ---- config (paper / BindsNET constants; sizes via env) ---------------------
 N = _ei("NORD_M", 6400)
 N_TRAIN = _ei("NORD_TRAIN", 60000)
@@ -74,12 +108,14 @@ def make_dataset(train):
 
 
 def main():
+    device = resolve_device()
     print("=" * 60)
-    print("v0.9  BindsNET Diehl & Cook (eth_mnist) — conductance-based")
+    print("BindsNET Diehl & Cook (eth_mnist) — conductance-based")
     print("=" * 60)
-    print(f"neurons={N}  time={TIME}ms  train={N_TRAIN}  test={N_TEST}  epochs={N_EPOCHS}")
-    if N >= 1600:
-        print("WARNING: large network on CPU — expect a multi-hour run.")
+    print(f"neurons={N}  time={TIME}ms  train={N_TRAIN}  test={N_TEST}  epochs={N_EPOCHS}  device={device}")
+    if N >= 1600 and device == "cpu":
+        print("WARNING: large network on CPU — expect a multi-hour (likely overnight) run.")
+        print("         Pass --gpu on a CUDA machine (RTX 5070: needs cu128 torch).")
     print()
 
     network = DiehlAndCook2015(
@@ -88,14 +124,15 @@ def main():
     )
     spikes = Monitor(network.layers["Ae"], state_vars=["s"], time=STEPS)
     network.add_monitor(spikes, name="Ae")
+    network.to(device)   # moves layers (+ their monitored spikes) onto the device
 
-    assignments = -torch.ones(N)
-    proportions = torch.zeros(N, N_CLASSES)
-    rates = torch.zeros(N, N_CLASSES)
+    assignments = -torch.ones(N, device=device)
+    proportions = torch.zeros(N, N_CLASSES, device=device)
+    rates = torch.zeros(N, N_CLASSES, device=device)
 
     # ---- train (unsupervised STDP, no labels in the learning loop) ----
     train_set = make_dataset(train=True)
-    spike_record = torch.zeros(UPDATE, STEPS, N)
+    spike_record = torch.zeros(UPDATE, STEPS, N, device=device)
     labels = []
     acc_hist = []
     print("training...")
@@ -105,14 +142,14 @@ def main():
             if step >= N_TRAIN:
                 break
             if step % UPDATE == 0 and step > 0:
-                lt = torch.tensor(labels[-UPDATE:])
+                lt = torch.tensor(labels[-UPDATE:], device=device)
                 pred = all_activity(spikes=spike_record, assignments=assignments, n_labels=N_CLASSES)
                 acc = 100 * torch.sum(lt.long() == pred).item() / len(lt)
                 acc_hist.append(acc)
                 assignments, proportions, rates = assign_labels(
                     spikes=spike_record, labels=lt, n_labels=N_CLASSES, rates=rates)
                 print(f"  step {step}/{N_TRAIN}  window train acc={acc:.1f}%  (avg {sum(acc_hist)/len(acc_hist):.1f}%)")
-            inputs = {"X": batch["encoded_image"].view(STEPS, 1, 1, 28, 28)}
+            inputs = {"X": batch["encoded_image"].view(STEPS, 1, 1, 28, 28).to(device)}
             network.run(inputs=inputs, time=TIME)
             spike_record[step % UPDATE] = spikes.get("s").squeeze()
             labels.append(batch["label"].item())
@@ -120,16 +157,16 @@ def main():
 
     # ---- test (theta + weights frozen; classify by assigned-neuron activity) ----
     test_set = make_dataset(train=False)
-    rec = torch.zeros(1, STEPS, N)
+    rec = torch.zeros(1, STEPS, N, device=device)
     n_all, n_prop, n = 0.0, 0.0, 0
     print("\ntesting...")
     for step, batch in enumerate(test_set):
         if step >= N_TEST:
             break
-        inputs = {"X": batch["encoded_image"].view(STEPS, 1, 1, 28, 28)}
+        inputs = {"X": batch["encoded_image"].view(STEPS, 1, 1, 28, 28).to(device)}
         network.run(inputs=inputs, time=TIME)
         rec[0] = spikes.get("s").squeeze()
-        lt = torch.tensor([batch["label"]])
+        lt = torch.tensor([batch["label"]], device=device)
         n_all += float(torch.sum(lt.long() == all_activity(
             spikes=rec, assignments=assignments, n_labels=N_CLASSES)).item())
         n_prop += float(torch.sum(lt.long() == proportion_weighting(

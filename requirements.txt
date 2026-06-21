@@ -4,6 +4,8 @@
 # Only the real-data / snnTorch files need these. CPU build is fine:
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 #   pip install snntorch numpy
+# GPU (for eth_mnist_bindsnet.py --gpu). RTX 5070 = Blackwell (sm_120) -> CUDA 12.8+:
+#   pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu128
 torch
 torchvision
 snntorch
