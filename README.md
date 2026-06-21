@@ -35,6 +35,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.5 | `snn_mnist_stdp.py` | **Scale with real data** — configurable size via env vars | 81.5% (300 neurons / 6k imgs), 23.6× compute |
 | v0.6 | `snn_moe_stdp_mnist.py` | **MoE + STDP hybrid** — firing-rate routing over N STDP expert pops | 74.4% MNIST, 3× routing saving, **0-param router** |
 | v0.7 | (hardening) | **Fix the limitations** — factored O(P·k) storage, capacity sweep, optional inhibition population | assoc-mem **874× smaller**; capacity curve; inhibition benchmarked |
+| v0.8 | `snn_mnist_stdp.py`, `snn_mnist_dc.py` | **Inhibition study** — 3 inhibition designs benchmarked; tuned homeostasis | STDP **81.5% → 82.3%**; hard-WTA confirmed best |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -69,6 +70,9 @@ python snn_mnist_stdp.py                # unsupervised STDP on MNIST
 
 # Scale it (v0.5) — no code edit, just env vars:
 NORD_M=300 NORD_TRAIN=6000 NORD_TEST=2000 python snn_mnist_stdp.py
+
+# Best STDP config found (v0.8) — tuned homeostasis -> 82.3%:
+NORD_M=300 NORD_TRAIN=6000 NORD_TDECAY=0.99999 NORD_TPLUS=0.8 python snn_mnist_stdp.py
 ```
 
 Every script prints a metrics block and ends with a runnable `assert`-based
@@ -101,14 +105,19 @@ attractor memory), small enough to actually check.
   **Fixed (v0.7):** `python snn_classifier.py sweep` traces the capacity curve —
   accuracy holds to ~30% pixel noise, then falls to chance by 50%. (v0.6 also
   gives the MoE primitive a real-data MNIST version.)
-- **STDP inhibition — implemented, honest negative result.** An explicit
-  lateral-inhibition population is now available (`NORD_INHIB`), but at every
-  tested strength it *underperforms* the hard-WTA + adaptive-threshold baseline
-  (70.6% → 27–31% on the smoke config): the lumped graded-inhibition scheme
-  destabilises class coverage. Reaching the literature's ~95% needs the full
-  Diehl & Cook machinery — separate exc/inh LIF populations with proper membrane
-  time constants, adaptive membrane thresholds, longer presentation windows, and
-  all 60k images — which is beyond this prototype. Default stays hard-WTA (81.5%).
+- **STDP inhibition — investigated in depth (v0.8), with a modest real gain.**
+  Three explicit-inhibition designs were built and benchmarked: a graded global
+  pool (`NORD_INHIB`), a separate Diehl & Cook population (`snn_mnist_dc.py`), and
+  k-WTA multi-winner co-firing (`NORD_KWTA`). **All three underperform** hard
+  single-winner WTA + adaptive thresholds — which turns out to be the effective
+  strong-inhibition limit (the current-based D&C population collapses to ~chance
+  without conductance synapses; k-WTA drops 70.6%→58%). What *did* help: retuning
+  the homeostasis (mild theta decay `NORD_TDECAY=0.99999` + stronger
+  `NORD_TPLUS=0.8`) lifts accuracy **81.5% → 82.3%** at the same scale. Naive
+  scale-up alone regressed (M=400/20k: 78.3%) until theta-equilibrium fixed it
+  (→80.9%). Closing the rest of the gap to the literature's ~95% needs
+  conductance-based exc/inh LIF populations and all 60k images — out of scope
+  here. Full benchmark table in [CHANGELOG.md](CHANGELOG.md) v0.8.
 
 Numbers reported are from fixed seeds; rerun to reproduce. See
 [CHANGELOG.md](CHANGELOG.md) for the per-version history.

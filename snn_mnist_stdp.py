@@ -37,6 +37,11 @@ def _env(key, default):  # scale knobs without editing the file
     v = os.environ.get(key)
     return int(v) if v else default
 
+
+def _envf(key, default):  # float knobs (thresholds, learning rates)
+    v = os.environ.get(key)
+    return float(v) if v else default
+
 M = _env("NORD_M", 100)        # excitatory neurons (= number of learned prototypes)
 T = 30             # timesteps per image
 MAX_RATE = 0.35    # Poisson spike prob for a fully-lit pixel, per step
@@ -47,16 +52,16 @@ LR = 0.012         # STDP learning rate
 TAU_PRE = 20.0     # pre-synaptic trace time constant (steps)
 W_NORM = 78.0      # target sum of each neuron's incoming weights (homeostasis)
 WMAX = 1.0         # weight clip
-THRESH = 8.0       # base membrane firing threshold
-THETA_PLUS = 0.4   # adaptive-threshold bump per spike (homeostasis - the fix
-                   #   that forces neurons to specialise instead of one winning all)
-THETA_DECAY = 1.0  # theta persistence during training (1.0 = no decay)
-# v0.7: explicit lateral-inhibition population (Diehl & Cook). NORD_INHIB>0 turns
-# it on: each exc spike charges a global inhibitory pool that suppresses ALL other
-# exc neurons (inh->exc all-but-self), decaying over time — graded competition
-# instead of hard "zero everyone". NORD_INHIB=0 keeps the v0.5 hard-WTA baseline.
-INHIB = float(os.environ.get("NORD_INHIB", "0"))
-INH_DECAY = 0.9    # inhibitory pool decay per timestep
+THRESH = _envf("NORD_THRESH", 8.0)       # base membrane firing threshold
+THETA_PLUS = _envf("NORD_TPLUS", 0.4)    # adaptive-threshold bump per spike
+                   #   (homeostasis - forces neurons to specialise vs one-wins-all)
+THETA_DECAY = _envf("NORD_TDECAY", 1.0)  # theta decay/step (<1 = equilibrium, key
+                   #   when training on many images so theta doesn't freeze cells)
+# v0.8: k-WTA graded lateral inhibition. Up to KWTA strongest neurons (that clear
+# threshold) may fire per timestep, not just one — a stable, working stand-in for
+# the inhibitory population that lets a small POPULATION co-activate per image.
+# KWTA=1 reproduces the v0.5 hard-WTA baseline exactly.
+KWTA = _env("NORD_KWTA", 1)
 N_IN = 28 * 28
 
 
@@ -95,7 +100,6 @@ class StdpNetwork:
         mem = self.lif.init_leaky()
         x_pre = torch.zeros(N_IN)
         counts = torch.zeros(M)
-        inh = 0.0                                          # inhibitory pool charge
         synops = 0
         rates = image * MAX_RATE
         for _ in range(T):
@@ -104,26 +108,21 @@ class StdpNetwork:
             cur = self.W @ s_in                            # sparse: drives exc
             synops += int(s_in.sum().item()) * M
             _, mem = self.lif(cur, mem)                    # snnTorch leaky integration
-            # effective drive = membrane - own adaptive threshold - global inhibition
-            eff = mem - self.theta - (INHIB * inh)
-            winner = int(eff.argmax().item())
-            if eff[winner] > THRESH:
-                counts[winner] += 1
-                if learn:
-                    # STDP potentiation: move winner's weights toward recently
-                    # active inputs (pre-before-post), then renormalise.
-                    self.W[winner] += LR * x_pre
-                    self.W[winner].clamp_(0.0, WMAX)
-                    self.theta[winner] += THETA_PLUS       # raise its own bar
-                if INHIB > 0:
-                    inh += 1.0                              # charge inhibitory pool
-                    mem[winner] = 0.0                      # reset only the spiker;
-                    # others stay charged but are held down by `inh` (graded
-                    # lateral inhibition = the Diehl & Cook inhibitory population)
-                else:
-                    mem = torch.zeros(M)                    # baseline hard WTA
-            if INHIB > 0:
-                inh *= INH_DECAY                            # inhibition decays
+            eff = mem - self.theta                         # drive minus adaptive threshold
+            # k-WTA graded inhibition: the (up to KWTA) strongest neurons that
+            # clear the base threshold co-fire; the rest are inhibited (reset).
+            cand = (eff > THRESH).nonzero(as_tuple=True)[0]
+            if cand.numel() > 0:
+                if cand.numel() > KWTA:
+                    cand = cand[torch.topk(eff[cand], KWTA).indices]
+                for w in cand.tolist():
+                    counts[w] += 1
+                    if learn:
+                        # STDP potentiation toward recently-active inputs, clamp.
+                        self.W[w] += LR * x_pre
+                        self.W[w].clamp_(0.0, WMAX)
+                        self.theta[w] += THETA_PLUS        # raise its own bar
+                mem = torch.zeros(M)                        # lateral inhibition reset
             if learn:
                 self.theta *= THETA_DECAY
         if learn:
@@ -177,7 +176,8 @@ def main():
             print(f"  {i+1}/{TRAIN_N} images")
 
     print("\nassigning neuron labels by majority vote...")
-    assignment = assign_labels(net, Xtr, Ytr)
+    n_assign = min(len(Xtr), 6000)   # labelling needs only a representative subset
+    assignment = assign_labels(net, Xtr[:n_assign], Ytr[:n_assign])
     counts_per_class = [int((assignment == c).sum().item()) for c in range(10)]
     print(f"  neurons per class: {counts_per_class}")
 

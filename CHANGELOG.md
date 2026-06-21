@@ -3,6 +3,32 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.8] — STDP inhibition study + homeostasis tuning
+Follow-up on the v0.7 inhibition limitation: built and benchmarked several
+explicit-inhibition designs, then found a real (if modest) accuracy gain.
+### Added
+- `snn_mnist_dc.py` — a from-scratch separate-population Diehl & Cook network
+  (all-but-self lateral inhibition, weight-dependent STDP, re-presentation).
+- New env knobs on `snn_mnist_stdp.py`: `NORD_KWTA` (k-winners co-fire),
+  `NORD_THRESH`, `NORD_TPLUS`, `NORD_TDECAY` — homeostasis is now tunable.
+- Label assignment now uses a 6k-image subset (faster on large training sets).
+### Benchmark (M=100/1.5k smoke unless noted; chance = 10%)
+| inhibition design | result | verdict |
+|---|---|---|
+| hard single-winner WTA + adaptive theta (baseline) | 70.6% | best |
+| graded global inhibitory pool (`NORD_INHIB` 0.5–3) | 27–31% | collapses coverage |
+| separate D&C population (`snn_mnist_dc.py`, swept) | 9–22% | collapses (needs conductance synapses) |
+| k-WTA multi-winner (`NORD_KWTA` 3 / 7) | 66% / 58% | less selective |
+### Result — what actually helped
+- Hard single-winner WTA + adaptive thresholds is the effective strong-inhibition
+  limit; explicit graded/population inhibition needs conductance dynamics to match.
+- Retuned homeostasis **`NORD_TDECAY=0.99999 NORD_TPLUS=0.8`** lifts the STDP model
+  **81.5% → 82.3%** at M=300/6k (the new best).
+- Naive scale-up regressed (M=400/20k = 78.3% with frozen theta); theta-equilibrium
+  recovered it to 80.9%, but M=300/6k stays the sweet spot at this tuning.
+- Reaching the literature's ~95% needs conductance-based exc/inh LIF populations and
+  all 60k images — out of scope for a stdlib-spirit prototype.
+
 ## [v0.7] — Fix the limitations
 Addresses the three caveats from the README's limitations section.
 ### Changed
