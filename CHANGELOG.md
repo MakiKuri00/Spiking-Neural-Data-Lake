@@ -3,6 +3,24 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.25] — Depth: relation algebra (Paradigm C) + GPU scaling harness
+Two depth tracks: richer relation types now (CPU), GPU-scale accuracy harness for later
+(GPU busy with the 6400/60k run).
+### Added
+- `spike_kg_relations.py` — Paradigm C depth. One cyclic KG exercising the full relation
+  algebra in spike-phase coding: **symmetric** (φ≈0/π, self-inverse), **inverse**
+  (φ≈−φ), **composition** (φ_C≈φ_A+φ_B). Trains RotatE, then checks BOTH per-relation
+  link prediction AND that the learned phases satisfy the algebra.
+  - Result: **all 6 relation types 100% Hits@1**; learned-phase errors inverse 0.15 rad,
+    composition 0.22 rad, symmetric 0.61 rad (looser — two basins 0/π — but ≪ random 1.57).
+  - Added to the CI stdlib self-check set.
+- `gpu_scaling_sweep.sh` — accuracy-vs-neurons scaling-law harness (400→1600→6400) for the
+  conductance D&C model; `python -u` unbuffered so progress is live (the 6400 run was
+  invisible due to Python output buffering). Runs on a CUDA box after the GPU frees up.
+### Note
+- GeNN-based GPU depth still needs a C++ compiler + CUDA toolkit (only the cu128 torch
+  runtime is installed); the BindsNET `--gpu` path is the working GPU vehicle.
+
 ## [v0.24] — Repo presentation: catalyst-neuromorphic style + CI
 Reformatted the repo to match the conventions of the catalyst-neuromorphic org
 (badges → results table → architecture-at-a-glance → directory tree → competitive context).

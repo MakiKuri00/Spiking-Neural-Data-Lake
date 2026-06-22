@@ -21,7 +21,8 @@ jobs:
           for f in spiking_storage_prototype test_prototype snn_classifier \
                    snn_moe_classifier temporal_coding_storage spike_telemetry_hub \
                    paradigm_b_matcher paradigm_b_engine spike_preprocessing \
-                   spike_knowledge_graph spike_knowledge_graph_rotate make_results_plot; do
+                   spike_knowledge_graph spike_knowledge_graph_rotate spike_kg_relations \
+                   make_results_plot; do
             echo "::group::$f"
             python "$f.py"
             echo "::endgroup::"

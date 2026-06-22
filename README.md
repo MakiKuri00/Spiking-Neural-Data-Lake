@@ -55,7 +55,7 @@ The three data-system paradigms (after an external architectural assessment), al
 |----------|------------|----------------|--------|
 | **A** — telemetry hub | store + query multi-channel spike trains as sparse events | `spike_telemetry_hub.py` | ✅ complete (v0.12) |
 | **B** — in-storage search | compile a query into an SNN, stream stored spikes, emit only matches (coincidence **and** temporal sequence) | `paradigm_b_engine.py` (+ `paradigm_b_genn.py` GPU) | ✅ complete (v0.20) |
-| **C** — relational embeddings | a knowledge graph stored in spike timing; link prediction + anomaly scoring | `spike_knowledge_graph.py` (TransE), `spike_knowledge_graph_rotate.py` (RotatE) | ✅ complete (v0.21–22) |
+| **C** — relational embeddings | a knowledge graph in spike timing; link prediction, anomaly scoring, full relation algebra (symmetric / inverse / composition) | `spike_knowledge_graph.py` (TransE), `spike_knowledge_graph_rotate.py` (RotatE), `spike_kg_relations.py` (algebra) | ✅ complete (v0.21–25) |
 
 Trainable models (learn the representations):
 
@@ -112,6 +112,7 @@ python spike_telemetry_hub.py            # Paradigm A — sparse spike-train sto
 python paradigm_b_engine.py              # Paradigm B — coincidence + sequence queries
 python spike_knowledge_graph.py          # Paradigm C — SpikE relational embeddings
 python spike_knowledge_graph_rotate.py   # Paradigm C — RotatE cyclic relations
+python spike_kg_relations.py             # Paradigm C — relation algebra (sym/inverse/composition)
 
 # Real-data models — need deps (CPU build is fine):
 pip install -r requirements.txt
@@ -131,7 +132,9 @@ pip install bindsnet
 python eth_mnist_bindsnet.py --gpu        # 6400 neurons / 60k → ~95%
 ```
 
-Verified end-to-end on an RTX 5070 (`torch 2.11.0+cu128`, capability 12.0).
+Verified end-to-end on an RTX 5070 (`torch 2.11.0+cu128`, capability 12.0). For the
+accuracy-vs-neurons scaling law (400 → 1600 → 6400) run `bash gpu_scaling_sweep.sh`
+(unbuffered, live progress).
 
 ---
 
