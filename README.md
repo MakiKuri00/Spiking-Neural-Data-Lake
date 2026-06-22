@@ -50,6 +50,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.20 | `paradigm_b_engine.py` | **Paradigm B complete** — query engine adding **temporal-sequence** matching (order-aware) to coincidence | sequence finds 40/40 ordered motifs, rejects reverse (3); reads 1.3% of file |
 | v0.21 | `spike_knowledge_graph.py` | **Paradigm C complete** — SpikE relational embeddings: entities=spike-times, relations=spike-time offsets | link prediction **Hits@1 50%** (random 1.6%), anomalies score 2.2× higher |
 | v0.22 | `spike_knowledge_graph_rotate.py` | **Cyclic relations (RotatE)** — phase-of-firing coding; relations = phase rotations | cyclic KG: **RotatE Hits@1 100%** vs TransE **0%** |
+| v0.23 | `eth_mnist_bindsnet.py` | **GPU-verified on RTX 5070** (Blackwell sm_120, cu128) — device-alignment fixes to the `--gpu` path | smoke runs clean on GPU; full 6400/60k run launched for ~95% |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).

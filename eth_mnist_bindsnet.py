@@ -143,7 +143,7 @@ def main():
                 break
             if step % UPDATE == 0 and step > 0:
                 lt = torch.tensor(labels[-UPDATE:], device=device)
-                pred = all_activity(spikes=spike_record, assignments=assignments, n_labels=N_CLASSES)
+                pred = all_activity(spikes=spike_record, assignments=assignments, n_labels=N_CLASSES).to(device)
                 acc = 100 * torch.sum(lt.long() == pred).item() / len(lt)
                 acc_hist.append(acc)
                 assignments, proportions, rates = assign_labels(
@@ -158,7 +158,7 @@ def main():
     # ---- test (theta + weights frozen; classify by assigned-neuron activity) ----
     test_set = make_dataset(train=False)
     rec = torch.zeros(1, STEPS, N, device=device)
-    n_all, n_prop, n = 0.0, 0.0, 0
+    n_all, n = 0.0, 0
     print("\ntesting...")
     for step, batch in enumerate(test_set):
         if step >= N_TEST:
@@ -168,19 +168,15 @@ def main():
         rec[0] = spikes.get("s").squeeze()
         lt = torch.tensor([batch["label"]], device=device)
         n_all += float(torch.sum(lt.long() == all_activity(
-            spikes=rec, assignments=assignments, n_labels=N_CLASSES)).item())
-        n_prop += float(torch.sum(lt.long() == proportion_weighting(
-            spikes=rec, assignments=assignments, proportions=proportions, n_labels=N_CLASSES)).item())
+            spikes=rec, assignments=assignments, n_labels=N_CLASSES).to(device)).item())
         n += 1
         network.reset_state_variables()
         if n % 500 == 0:
             print(f"  tested {n}/{N_TEST}  running all-activity acc={100*n_all/n:.2f}%")
 
     acc_all = 100 * n_all / n
-    acc_prop = 100 * n_prop / n
     print("\n" + "=" * 60)
-    print(f"TEST ACCURACY (all-activity)        : {acc_all:.2f}%")
-    print(f"TEST ACCURACY (proportion-weighting): {acc_prop:.2f}%")
+    print(f"TEST ACCURACY (all-activity) : {acc_all:.2f}%")
     print(f"(paper: {N} neurons -> ~"
           + {100: '82.9', 400: '87.0', 1600: '91.9', 6400: '95.0'}.get(N, '??') + "%)")
     print("=" * 60)

@@ -3,6 +3,23 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.23] — GPU-verified BindsNET on RTX 5070 (the --gpu path actually runs now)
+The v0.10 `--gpu` switch was never exercised on a real GPU; running it on an RTX 5070
+(Blackwell sm_120, torch 2.11.0+cu128) surfaced two device bugs, now fixed.
+### Fixed
+- `all_activity` returns predictions on CPU while label tensors are on CUDA → align
+  predictions to the device before comparing (3 sites).
+- BindsNET's `proportion_weighting` has an internal CPU/GPU device bug; dropped that
+  secondary readout and report all-activity accuracy (the canonical Diehl & Cook metric).
+### Verified
+- `torch.cuda.is_available()` True, device "NVIDIA GeForce RTX 5070", capability (12,0),
+  GPU matmul OK. End-to-end smoke (100 neurons / 2k imgs) runs clean on GPU (57.5% —
+  undertrained at 2k, as expected). Full **6400 neurons / 60k train / 10k test** run
+  launched on the GPU for the ~95% target (68% GPU util, 4.3/12 GB).
+### Note
+- GeNN paths (`*_genn.py`) still additionally need a C++ compiler + CUDA toolkit; the
+  BindsNET `--gpu` path needs only the cu128 torch driver stack, which the 5070 has.
+
 ## [v0.22] — Cyclic relations via RotatE (spike phase coding)
 v0.21's TransE embeds translational/lattice relations but gets **0%** on cyclic ones
 (`tail = (head + shift) mod N` needs a rotation). RotatE fixes it — and is more
