@@ -156,39 +156,37 @@ current. Deferred infra from the assessment (Parquet storage tier, OpenTelemetry
 observability, in-storage NPU execution) is intentionally out of scope for a
 research-prototype repo.
 
-## Limitations — addressed in v0.7
+## Limitations & open problems (current, v0.18)
 
-- ~~The associative memory isn't a byte-compressor (N×N weight matrix).~~
-  **Fixed (v0.7):** storage is now factored to **O(P·k)** — the memory keeps the
-  P sparse patterns, not the N×N matrix, and reconstructs the correlations on the
-  fly. ~**874× smaller** (600 B vs 512 KB at N=256/P=15), recall bit-for-bit
-  identical, and compute drops too (~109×). It is now a genuine storage win whose
-  added value over a plain pattern list is content-addressable *denoising* recall.
-- ~~Synthetic classifiers only show the win, not capacity limits.~~
-  **Fixed (v0.7):** `python snn_classifier.py sweep` traces the capacity curve —
-  accuracy holds to ~30% pixel noise, then falls to chance by 50%. (v0.6 also
-  gives the MoE primitive a real-data MNIST version.)
-- **STDP inhibition — investigated in depth (v0.8), with a modest real gain.**
-  Three explicit-inhibition designs were built and benchmarked: a graded global
-  pool (`NORD_INHIB`), a separate Diehl & Cook population (`snn_mnist_dc.py`), and
-  k-WTA multi-winner co-firing (`NORD_KWTA`). **All three underperform** hard
-  single-winner WTA + adaptive thresholds — which turns out to be the effective
-  strong-inhibition limit (the current-based D&C population collapses to ~chance
-  without conductance synapses; k-WTA drops 70.6%→58%). What *did* help: retuning
-  the homeostasis (mild theta decay `NORD_TDECAY=0.99999` + stronger
-  `NORD_TPLUS=0.8`) lifts accuracy **81.5% → 82.3%** at the same scale. Naive
-  scale-up alone regressed (M=400/20k: 78.3%) until theta-equilibrium fixed it
-  (→80.9%). Closing the rest of the gap to the literature's ~95% needs
-  conductance-based exc/inh LIF populations and all 60k images — out of scope
-  here. Full benchmark table in [CHANGELOG.md](CHANGELOG.md) v0.8.
-  **Resolved (v0.9):** rather than re-derive conductance dynamics, `eth_mnist_bindsnet.py`
-  wires in BindsNET's conductance-based `DiehlAndCook2015`. Verified end-to-end —
-  100 neurons / 10k images reaches **76.0%** with the train window climbing 10%→82%
-  as STDP specialises (on track to the paper's 82.9% at full 60k). Reaching the
-  full **95% needs 6400 neurons + all 60k images on a GPU** (CPU ≈ hundreds of
-  hours); the runner defaults to that config and prints the matching paper number.
-  So the path to ~95% is now wired and validated — the remaining gap is compute,
-  not method.
+**Resolved**
+- ~~Associative memory isn't a byte-compressor (N×N matrix).~~ **v0.7:** factored to
+  **O(P·k)** — store the P sparse patterns, reconstruct correlations on the fly.
+  874× smaller, recall bit-identical, ~109× less compute.
+- ~~Synthetic classifiers don't show capacity limits.~~ **v0.7:**
+  `python snn_classifier.py sweep` traces the capacity curve (holds to ~30% pixel
+  noise, falls to chance by 50%).
+- ~~No explicit inhibition / unclear how to reach ~95%.~~ **v0.8:** three inhibition
+  designs benchmarked — hard single-winner WTA + adaptive thresholds is the effective
+  strong-inhibition limit; tuned homeostasis → 82.3%. **v0.9:** BindsNET conductance
+  Diehl & Cook wired in and verified (100n/10k → 76%, on track to the paper's curve).
 
-Numbers reported are from fixed seeds; rerun to reproduce. See
-[CHANGELOG.md](CHANGELOG.md) for the per-version history.
+**Open / inherent tradeoffs**
+- **~95% needs a GPU.** Conductance D&C hits ~95% only at 6400 neurons + all 60k images
+  (hundreds of CPU-hours). `eth_mnist_bindsnet.py --gpu` runs it on CUDA (RTX 5070 =
+  cu128). On CPU the verified ceiling is ~82–83% — a *compute* limit, not a method one.
+- **Latency↔rate gap (−6.2 pts).** Deterministic latency STDP (76.0%) trails rate
+  (82.3%). This is an **information gap** — one deterministic pass carries less than
+  many stochastic Poisson samples — not a missing rule. Burst + x_tar LTD halved it
+  (v0.17); a proper pair-based STDP kernel did **not** help (v0.18, degrades — kept
+  opt-in, default off). Real closers: more neurons/data, or a non-WTA readout.
+- **Determinism is mandatory for the query path.** Poisson re-encoding the same input
+  yields different spike trains (Van Rossum ~13 vs 0), so stochastic encoding can't be
+  used for identity/matching (v0.18). The deterministic encoder is a hard requirement,
+  not a preference.
+- **Paradigm B's real win needs neuromorphic silicon.** The CPU matcher is verified;
+  the GeNN GPU port (`paradigm_b_genn.py`) needs CUDA 12.8 + a C++ compiler; true
+  line-rate in-storage search needs an NPU (NPUsearch-class hardware).
+- **Not a production data lake.** Parquet tier, OpenTelemetry, distributed storage are
+  deliberately out of scope — this is a research-prototype lake proving the algorithms.
+
+Numbers are fixed-seed; rerun to reproduce. Per-version detail in [CHANGELOG.md](CHANGELOG.md).

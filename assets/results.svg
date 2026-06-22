@@ -4,6 +4,8 @@
 <text x="205.0" y="46" font-size="15" font-weight="bold" text-anchor="middle" fill="#222">Test accuracy (%)</text><text x="205.0" y="392" font-size="11" text-anchor="middle" fill="#888">classifier versions  (MNIST chance = 10%)</text><line x1="40" y1="320" x2="370" y2="320" stroke="#d9d9d9" stroke-width="1.5"/>
 <line x1="40" y1="295.0" x2="370" y2="295.0" stroke="#c0392b" stroke-width="1" stroke-dasharray="4 3"/>
 <text x="368" y="291.0" font-size="9" text-anchor="end" fill="#c0392b">chance 10%</text>
+<line x1="40" y1="82.5" x2="370" y2="82.5" stroke="#2e7d32" stroke-width="1" stroke-dasharray="5 3"/>
+<text x="42" y="78.5" font-size="9" fill="#2e7d32">95% — 6400 neurons, GPU (v0.9)</text>
 <rect x="49.1" y="70.0" width="23.1" height="250.0" rx="3" fill="#2a9d8f"/>
 <text x="60.6" y="64.0" font-size="13" font-weight="bold" text-anchor="middle" fill="#333333">100.0</text>
 <text x="60.6" y="338.0" font-size="13" text-anchor="middle" fill="#333333">v0.2</text>

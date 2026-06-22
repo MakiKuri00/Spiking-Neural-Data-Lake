@@ -58,6 +58,10 @@ chance_y = PLOT_BOT - (10 / 100) * PLOT_H
 svg.append(f'<line x1="{ax0}" y1="{chance_y:.1f}" x2="{ax0+aw}" y2="{chance_y:.1f}" stroke="#c0392b" '
            f'stroke-width="1" stroke-dasharray="4 3"/>')
 svg.append(f'<text x="{ax0+aw-2}" y="{chance_y-4:.1f}" font-size="9" text-anchor="end" fill="#c0392b">chance 10%</text>')
+tgt_y = PLOT_BOT - (95 / 100) * PLOT_H        # the GPU ceiling (v0.9 BindsNET, 6400 neurons)
+svg.append(f'<line x1="{ax0}" y1="{tgt_y:.1f}" x2="{ax0+aw}" y2="{tgt_y:.1f}" stroke="#2e7d32" '
+           f'stroke-width="1" stroke-dasharray="5 3"/>')
+svg.append(f'<text x="{ax0+2}" y="{tgt_y-4:.1f}" font-size="9" fill="#2e7d32">95% — 6400 neurons, GPU (v0.9)</text>')
 svg.append(bars(ACC, ax0, aw, 100.0, ACC_COL, lambda v: f"{v:.1f}"))
 
 # Panel B: compute reduction
