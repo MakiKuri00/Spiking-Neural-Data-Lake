@@ -49,6 +49,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.19 | `snn_mnist_stdp_genn.py` | **GeNN custom plasticity** — the working v0.17 burst+x_tar rule as a GPU `create_weight_update_model`, SpikeSourceArray determinism | GPU port (needs GeNN/CUDA 12.8); rule math = CPU-verified `snn_mnist_stdp_fast` |
 | v0.20 | `paradigm_b_engine.py` | **Paradigm B complete** — query engine adding **temporal-sequence** matching (order-aware) to coincidence | sequence finds 40/40 ordered motifs, rejects reverse (3); reads 1.3% of file |
 | v0.21 | `spike_knowledge_graph.py` | **Paradigm C complete** — SpikE relational embeddings: entities=spike-times, relations=spike-time offsets | link prediction **Hits@1 50%** (random 1.6%), anomalies score 2.2× higher |
+| v0.22 | `spike_knowledge_graph_rotate.py` | **Cyclic relations (RotatE)** — phase-of-firing coding; relations = phase rotations | cyclic KG: **RotatE Hits@1 100%** vs TransE **0%** |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -82,6 +83,7 @@ python paradigm_b_matcher.py            # Paradigm B: query->SNN coincidence mat
 python paradigm_b_engine.py             # Paradigm B engine: coincidence + temporal-sequence queries
 python spike_preprocessing.py           # deterministic encode + precompute cache + Van Rossum matching
 python spike_knowledge_graph.py         # Paradigm C: SpikE relational embeddings (link prediction + anomaly)
+python spike_knowledge_graph_rotate.py  # Paradigm C: RotatE phase coding for CYCLIC relations
 # paradigm_b_genn.py = GPU port (needs GeNN + CUDA 12.8 on an RTX 5070 box)
 
 # Real-data prototypes — need deps (CPU build is fine):
@@ -147,6 +149,8 @@ treats them as a roadmap:
 | **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **complete (v0.11–21)** — TTFS + deterministic encode + Van Rossum matching, **and** SpikE knowledge-graph embeddings (`spike_knowledge_graph.py`): link prediction + anomaly scoring over spike-time triples |
 
 **All three assessment paradigms now have complete implementations** (A: v0.12, B: v0.20, C: v0.21).
+Paradigm C covers both **translational** relations (TransE, v0.21) and **cyclic** ones
+(RotatE phase-coding, v0.22 — `spike_knowledge_graph_rotate.py`).
 
 **Design principle (v0.18):** the query/router path must use **deterministic** encoding.
 The same input has to encode to the same spike train or it can't be recognised as the

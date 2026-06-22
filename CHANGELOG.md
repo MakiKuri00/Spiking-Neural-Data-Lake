@@ -3,6 +3,22 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.22] — Cyclic relations via RotatE (spike phase coding)
+v0.21's TransE embeds translational/lattice relations but gets **0%** on cyclic ones
+(`tail = (head + shift) mod N` needs a rotation). RotatE fixes it — and is more
+spike-native: phase-of-firing coding.
+### Added
+- `spike_knowledge_graph_rotate.py` (stdlib): entities = spike PHASES θ∈[0,2π),
+  relations = phase SHIFTS φ_r; a triple holds when θ_t ≈ θ_h + φ_r (mod 2π). Distance
+  is the RotatE chord `2|sin(δ/2)|` with its smooth gradient; trained with margin
+  ranking, LR decay, and multiple negatives per positive. Includes a TransE baseline
+  on the SAME cyclic KG for direct contrast.
+### Verified (modular-ring KG, 40 entities, 5 relations)
+- **RotatE: Hits@1 100%, MRR 1.000** — vs **TransE: Hits@1 0%** on identical cyclic data.
+- Tuning notes: chord distance (not L1), D=4 (low-dim ring, less fragmentation), and
+  K=5 negatives per positive were what took it from 20% → 100%.
+- Paradigm C now covers translational (v0.21) AND cyclic (v0.22) relations.
+
 ## [v0.21] — Paradigm C complete: relational spiking embeddings (SpikE)
 v0.11–18 built Paradigm C's encoding side (TTFS, deterministic latency, Van Rossum). The
 missing SpikE core is RELATIONAL: store a knowledge graph in spike timing and reason over it.
