@@ -3,6 +3,20 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.24] — Repo presentation: catalyst-neuromorphic style + CI
+Reformatted the repo to match the conventions of the catalyst-neuromorphic org
+(badges → results table → architecture-at-a-glance → directory tree → competitive context).
+### Added
+- `.github/workflows/ci.yml` — runs every pure-stdlib script's assert-based self-check on
+  each push (12 scripts), so the **CI badge is real and green**. Verified locally first.
+### Changed
+- README restyled: badge row (CI / Python / MIT / release / zero-deps / GPU), a
+  reproducible **Results** table, an **Architecture at a Glance** table (3 paradigms +
+  trainable models), a **Directory structure** tree, a **Competitive context** section
+  (vs dense ANN, rate coding, the literature, Project Nord). Substance (versions, scope,
+  limitations, provenance) preserved.
+- Repo description + topics set to match the org's vocabulary.
+
 ## [v0.23] — GPU-verified BindsNET on RTX 5070 (the --gpu path actually runs now)
 The v0.10 `--gpu` switch was never exercised on a real GPU; running it on an RTX 5070
 (Blackwell sm_120, torch 2.11.0+cu128) surfaced two device bugs, now fixed.
