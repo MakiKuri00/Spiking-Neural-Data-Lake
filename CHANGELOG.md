@@ -3,6 +3,24 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.20] — Paradigm B complete: in-storage spike-query engine
+v0.13–14 had one query type (coincidence). A real in-storage search engine needs the
+SNN-native query a von-Neumann scan struggles with: temporal ORDER.
+### Added
+- `paradigm_b_engine.py` — `SpikeQueryEngine` over the v0.12 `.spk` store with two
+  compiled query types, both partial-read (only queried channels) + only-matches-to-host:
+  - `coincidence(channels, W, k)` — ≥k distinct channels within W (the v0.13/14 detector).
+  - `sequence(ordered, W)` — channels fire in the GIVEN ORDER within W: a delay-line /
+    polychronous-group detector. Order matters, which is the whole point of Paradigm B.
+### Verified (256-channel store, 40 injected 5→17→42 motifs + the {7,99} burst)
+- coincidence {7,99}: 634 matches (505 in burst), read 2.0% of file.
+- sequence 5→17→42: **41 matches (40/40 in the motif window)**; reverse 42→17→5: **3** —
+  the engine discriminates temporal order (a coincidence filter cannot). Read 1.3% of file.
+- Self-checks: coincidence finds burst, sequence finds the ordered motif AND rejects
+  reverse order, both partial-read.
+### Roadmap
+- **Paradigm A complete (v0.12) · Paradigm B complete (v0.20) · Paradigm C started (v0.11–18).**
+
 ## [v0.19] — GeNN custom plasticity (inject the working rule onto the GPU)
 Acts on the RTX 5070 architecture guidance: rather than GeNN's standard pair-STDP
 (which degraded, v0.18), inject the v0.17 rule that WORKS as a custom GPU weight-update.

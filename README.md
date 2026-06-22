@@ -47,6 +47,7 @@ Regenerate with `python make_results_plot.py`.
 | v0.17 | `snn_mnist_stdp_fast.py` | **Close the gap** — graded burst encoding + LTD depression (x_tar) | gap **−13.5→−6.2 pts** (latency 68.8→**76.0%**); still 2.1× faster, 2.6× fewer SynOps |
 | v0.18 | `snn_mnist_stdp_fast.py`, `spike_preprocessing.py` | **Pair-based STDP** (kernel; honest negative) + **determinism proof** for query identity | pair-LTD degrades (kept opt-in, default off); Poisson breaks query identity (dist 13.4) vs deterministic (0.0) |
 | v0.19 | `snn_mnist_stdp_genn.py` | **GeNN custom plasticity** — the working v0.17 burst+x_tar rule as a GPU `create_weight_update_model`, SpikeSourceArray determinism | GPU port (needs GeNN/CUDA 12.8); rule math = CPU-verified `snn_mnist_stdp_fast` |
+| v0.20 | `paradigm_b_engine.py` | **Paradigm B complete** — query engine adding **temporal-sequence** matching (order-aware) to coincidence | sequence finds 40/40 ordered motifs, rejects reverse (3); reads 1.3% of file |
 
 Reference file `snn_storage_core_snntorch.py` is the original snnTorch blueprint
 extracted from the source research brief (encoder only — does no storage).
@@ -77,6 +78,7 @@ python snn_moe_classifier.py            # spike-driven MoE routing
 python temporal_coding_storage.py       # TTFS latency coding (83x fewer ops than rate)
 python spike_telemetry_hub.py           # Paradigm A: sparse multi-channel spike-train store + queries
 python paradigm_b_matcher.py            # Paradigm B: query->SNN coincidence matcher over the store
+python paradigm_b_engine.py             # Paradigm B engine: coincidence + temporal-sequence queries
 python spike_preprocessing.py           # deterministic encode + precompute cache + Van Rossum matching
 # paradigm_b_genn.py = GPU port (needs GeNN + CUDA 12.8 on an RTX 5070 box)
 
@@ -139,7 +141,7 @@ treats them as a roadmap:
 | Paradigm | Idea | Status here |
 |---|---|---|
 | **A** — spike telemetry hub | manage sparse multi-channel spike-trains (cf. `SpikeData`, HRLAnalysis) | **complete (v0.12)** — `spike_telemetry_hub.py`: indexed `.spk` store, partial-read windowed queries, bin/rate/ISI/burst |
-| **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | **started (v0.13–14)** — `paradigm_b_matcher.py` (CPU, verified) + `paradigm_b_genn.py` (GeNN GPU port, per-channel sub-detectors → distinct-channel counting) |
+| **B** — in-storage pattern match | compile queries to SNNs, search raw storage at line rate (cf. NPUsearch) | **complete (v0.13–20)** — `paradigm_b_engine.py` query engine: **coincidence + temporal-sequence** queries over the `.spk` store, partial-read, only-matches-to-host; `paradigm_b_genn.py` GeNN GPU port |
 | **C** — relational spiking embeddings | encode data in spike *timing* (cf. the SpikE algorithm) | **started (v0.11–18)** — TTFS coding, deterministic latency encode + Van Rossum query matching (`temporal_coding_storage.py`, `spike_preprocessing.py`) |
 
 **Design principle (v0.18):** the query/router path must use **deterministic** encoding.
