@@ -95,6 +95,7 @@ spiking-neural-data-lake/
   snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
   snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
   make_results_plot.py             regenerates assets/results.svg
+  lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   research/                        source research briefs (the designs)
   assets/results.svg               results chart
 ```
@@ -157,10 +158,18 @@ accuracy-vs-neurons scaling law (400 → 1600 → 6400) run `bash gpu_scaling_sw
 ## Scope & roadmap
 
 **What this is:** small, runnable, mostly-stdlib SNN prototypes that demonstrate and
-measure the spike-based data-storage thesis. **What this is not (yet):** a production
-data-lake service (Parquet tier, OpenTelemetry, distributed storage are out of scope).
-All three assessment paradigms (A/B/C) have complete implementations; remaining frontiers
-are depth — GPU-scale accuracy and richer relation types.
+measure the spike-based data-storage thesis. All three assessment paradigms (A/B/C) have
+complete implementations.
+
+**Lakehouse path (v0.26):** `lakehouse/medallion.py` follows the *single-node-feasible*
+slice of a production "spiking neural data lakehouse" roadmap — the **Medallion**
+topology (Bronze raw events → Silver binned/aligned → Gold features: firing rate,
+population synchrony, inverse-compression ratio) over **columnar Parquet**, queried with
+polars (the local Spark/Delta substitute), ending in a deterministic latency encoding =
+the SNN handoff. **Production scale-out** (Spark clusters, Delta Lake/Iceberg ACID +
+time-travel, Kafka streaming, Liquid Clustering, Unity Catalog, Delta Sharing,
+format-preserving encryption, federated learning) needs cloud infrastructure and is
+documented as the next-scale path, not implemented here.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full per-version history (every version is a git
 tag + GitHub release).

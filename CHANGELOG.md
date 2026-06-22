@@ -3,6 +3,27 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.26] — Medallion lakehouse PoC (the followable slice of the production roadmap)
+Assessed an external "Production-Grade Spiking Neural Data Lakehouse" roadmap (cloud:
+Delta Lake / Spark / S3 / Kafka / Unity Catalog / Delta Sharing / FPE / federated). ~60%
+needs cloud infra + $; the ~40% data-PATH slice is followable on one box — built here.
+### Added
+- `lakehouse/medallion.py` — Medallion Bronze→Silver→Gold over this repo's spike store:
+  - **Bronze** raw events → columnar **Parquet**; **Silver** binned/temporally-aligned;
+    **Gold** features (per-channel firing rate, population synchrony CV, **inverse
+    compression ratio** via gzip = the brief's lesion metric), then a deterministic
+    **latency encoding** = the SNN handoff.
+  - Queried with **polars** (single-node Spark-SQL / Delta substitute): SQL over Parquet
+    + lazy column-pruned scans.
+- `polars` added to requirements (lakehouse PoC only; use its own venv).
+### Verified (64-channel synthetic telemetry, burst on {7,42})
+- Bronze 13,133 events → 29.9 KB Parquet; Silver 10.6k rows → 15.4 KB; Gold 64 rows.
+- Synchrony CV 0.269, ICR 0.197; SQL + column-pruned scan both surface the burst
+  channels {7,42}; latency handoff fires them earliest. Self-checks pass.
+### Documented (not built — needs cloud)
+- Production scale-out: Spark, Delta/Iceberg ACID + time-travel, Kafka, Liquid Clustering,
+  Unity Catalog, Delta Sharing, format-preserving encryption, federated learning.
+
 ## [v0.25] — Depth: relation algebra (Paradigm C) + GPU scaling harness
 Two depth tracks: richer relation types now (CPU), GPU-scale accuracy harness for later
 (GPU busy with the 6400/60k run).

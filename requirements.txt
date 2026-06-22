@@ -20,3 +20,7 @@ bindsnet
 # + CUDA 12.8+ (RTX 5070 = Blackwell). The CPU reference (paradigm_b_matcher.py) needs
 # nothing. On a GPU box:  pip install pygenn
 pygenn
+
+# v0.26 lakehouse PoC only — lakehouse/medallion.py (Medallion Bronze/Silver/Gold over
+# Parquet; polars is the single-node Spark/Delta substitute). Best in its own venv.
+polars
