@@ -1,0 +1,5 @@
+# Cloud Build: build the Vertex training image from gcp/Dockerfile (repo root context).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "gcp/Dockerfile", "-t", "${_IMG}", "."]
+images: ["${_IMG}"]

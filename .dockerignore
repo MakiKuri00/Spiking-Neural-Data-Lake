@@ -1,0 +1,13 @@
+.git/
+.github/
+.venv/
+.venv-lake/
+__pycache__/
+*.pyc
+data/
+lakehouse/data/
+graphify-out/
+research/
+assets/
+infra/
+CHANGELOG.md

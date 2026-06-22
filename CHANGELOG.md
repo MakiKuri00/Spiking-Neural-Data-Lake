@@ -3,6 +3,29 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.27] — GCP-native deployment scaffold
+Takes the local Medallion PoC toward a cloud lakehouse on GCP (GCS + BigLake/Iceberg +
+BigQuery + Dataproc Serverless + Vertex AI). Artifacts only — provisioning needs the
+user's auth/billing; nothing here touches a cloud.
+### Added
+- `infra/` — Terraform: GCS lake bucket (versioned), BigQuery dataset, BigLake connection,
+  Artifact Registry, job service account + IAM. `terraform apply -var project_id=…`.
+- `gcp/dataproc_medallion.py` — PySpark port of the Medallion ETL (Bronze→Silver→Gold over
+  GCS), for Dataproc Serverless (no cluster).
+- `gcp/Dockerfile` + `gcp/cloudbuild.yaml` + `gcp/submit_vertex.sh` — Vertex AI custom GPU
+  training (cu128 + bindsnet); runs `eth_mnist_bindsnet.py --gpu` at 6400/60k on an L4 for
+  the ~95% target (the run impractical on CPU).
+- `gcp/submit_dataproc.sh`, `gcp/README.md` (ordered deploy guide + BigLake table SQL + cost
+  notes), root `.dockerignore`.
+### Verified
+- Python + all shell scripts pass parse/syntax checks locally. (Cloud execution is the
+  user's to run.)
+### Mapping (roadmap → GCP)
+- S3→GCS, Spark→Dataproc Serverless, Delta/Iceberg→BigLake Iceberg, Spark SQL→BigQuery,
+  Kafka→Pub/Sub+Dataflow, Unity Catalog→Dataplex, FPE→Cloud DLP+KMS, Delta Sharing→
+  Analytics Hub, GPU training→Vertex AI. Streaming/orchestration/governance documented as
+  scale-out, not scripted.
+
 ## [v0.26] — Medallion lakehouse PoC (the followable slice of the production roadmap)
 Assessed an external "Production-Grade Spiking Neural Data Lakehouse" roadmap (cloud:
 Delta Lake / Spark / S3 / Kafka / Unity Catalog / Delta Sharing / FPE / federated). ~60%

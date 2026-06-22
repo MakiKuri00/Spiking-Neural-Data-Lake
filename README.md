@@ -96,6 +96,8 @@ spiking-neural-data-lake/
   snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
   make_results_plot.py             regenerates assets/results.svg
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
+  infra/                           Terraform — GCP-native lakehouse infrastructure
+  gcp/                             Dataproc/Vertex scaffold + deploy guide (gcp/README.md)
   research/                        source research briefs (the designs)
   assets/results.svg               results chart
 ```
@@ -169,7 +171,10 @@ polars (the local Spark/Delta substitute), ending in a deterministic latency enc
 the SNN handoff. **Production scale-out** (Spark clusters, Delta Lake/Iceberg ACID +
 time-travel, Kafka streaming, Liquid Clustering, Unity Catalog, Delta Sharing,
 format-preserving encryption, federated learning) needs cloud infrastructure and is
-documented as the next-scale path, not implemented here.
+documented as the next-scale path. A **GCP-native scaffold** for the first slice of that
+path (GCS + BigLake/Iceberg + BigQuery + Dataproc Serverless + Vertex AI GPU training)
+lives in [`infra/`](infra/) (Terraform) and [`gcp/`](gcp/README.md) (PySpark Medallion,
+training container, submit scripts, deploy guide).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full per-version history (every version is a git
 tag + GitHub release).
