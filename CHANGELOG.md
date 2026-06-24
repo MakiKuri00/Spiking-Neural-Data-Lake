@@ -3,6 +3,37 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.31] — Real event-camera data: N-MNIST ingestion (DVS spikes, not pixels)
+Closes the one real gap in Gemini's improvement brief — the repo trained only on static
+MNIST. N-MNIST is MNIST recorded by a Dynamic Vision Sensor: native async `(x, y, t, p)`
+spike events on a 34×34×2 grid, no rate/latency conversion needed.
+### Added
+- `nmnist_ingest.py` — end-to-end data-lake leg: events → **Bronze** gzip event store →
+  bin into T frames (a stdlib Tonic `ToFrame` analog) → **Silver** spike raster → **ICR**
+  (reuses the `lakehouse/medallion.py` gzip lesion metric) → **Gold** sparse firing-rate
+  vector → nearest-prototype classify. Reports storage size, ICR, sparsity, accuracy.
+### Measured (real N-MNIST, tonic 1.6.0)
+- **71.0%** test accuracy — 200 train / 100 test, balanced 10-class, 1.25M real DVS events,
+  nearest-prototype on the raw firing-rate vector (**no learning**, chance = 10%). ICR
+  **0.098**, 35% active feature. An honest baseline: a learned classifier on this feed (the
+  existing STDP / D&C models) is the obvious next lift.
+- Caught + fixed a class-ordering trap: N-MNIST is stored class-sorted, so "first N samples"
+  yielded ONE class and a degenerate 100%. The loader now samples spread indices (all 10
+  digits). The 71% is the real, balanced number.
+### Method (honest)
+- Real path: `pip install tonic` → pulls `tonic.datasets.NMNIST` (~1 GB first run). Without
+  tonic the script falls back to **deterministic synthetic events** so the full pipeline +
+  self-check run zero-dep (CI). Synthetic blobs are separable by construction — they prove
+  the plumbing, NOT a benchmark; the real N-MNIST number above requires tonic installed.
+### Why these, not the rest of the brief
+- Gemini could not read the repo (its ref 7 repomix fetch failed). ~70% of its "mandatory"
+  gaps already exist under GCP-native names: Kafka→Pub/Sub+Dataflow, ClickHouse→Medallion
+  Parquet/BigQuery, energy telemetry→Paradigm A SynOps metric, SpikingJelly→snnTorch+BindsNET.
+  Tonic/real-event-data was the genuine gap. ClickHouse codecs (DoubleDelta/Gorilla) noted
+  as a future ICR-improvement spike; Kafka/ClickHouse-server/foundation-models deferred.
+### CI
+- `nmnist_ingest.py` added to the stdlib self-check matrix (runs via synthetic fallback).
+
 ## [v0.30] — Scale-tuning recipe found: 1600 neurons → 90.0% on GPU
 The next step toward 95%: diagnosed the v0.29 scale-collapse, found the fix via GPU sweeps,
 ran the tuned full job.

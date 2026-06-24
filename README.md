@@ -44,6 +44,7 @@ on each push.
 | Telemetry hub (Paradigm A) | sparse `.spk` store | size / query I/O | **61× smaller** than raster, query reads 2% |
 | In-storage query (Paradigm B) | coincidence + sequence | host transfer | **162× less**, order-discriminating |
 | Relational KG (Paradigm C) | link prediction | Hits@1 | **50%** TransE · **100%** RotatE (cyclic) |
+| N-MNIST ingestion (real DVS) | 1.25M real events → Bronze → raster → classify | accuracy (no learning) | **71.0%** (200/100, nearest-prototype, chance 10%) · ICR 0.10 · 35% active |
 
 ---
 
@@ -94,6 +95,7 @@ spiking-neural-data-lake/
   eth_mnist_bindsnet.py            BindsNET conductance Diehl & Cook (GPU via --gpu)
   snn_mnist_stdp_genn.py           GeNN custom-plasticity GPU port
   snn_storage_core_snntorch.py     extracted snnTorch blueprint (reference)
+  nmnist_ingest.py                 N-MNIST event-camera ingestion (Tonic opt; synth fallback)
   make_results_plot.py             regenerates assets/results.svg
   lakehouse/medallion.py           Medallion Bronze/Silver/Gold PoC (Parquet + polars)
   infra/                           Terraform — GCP-native lakehouse infrastructure

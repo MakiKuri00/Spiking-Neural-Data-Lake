@@ -24,3 +24,8 @@ pygenn
 # v0.26 lakehouse PoC only — lakehouse/medallion.py (Medallion Bronze/Silver/Gold over
 # Parquet; polars is the single-node Spark/Delta substitute). Best in its own venv.
 polars
+
+# v0.31 OPTIONAL — real N-MNIST event-camera data for nmnist_ingest.py. WITHOUT it the
+# script runs on deterministic synthetic events (zero-dep, CI path). Installs torch too.
+# Real data (~1 GB download on first run):  pip install tonic
+tonic
