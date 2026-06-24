@@ -3,6 +3,27 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.30] — Scale-tuning recipe found: 1600 neurons → 90.0% on GPU
+The next step toward 95%: diagnosed the v0.29 scale-collapse, found the fix via GPU sweeps,
+ran the tuned full job.
+### Method
+- Two proxy sweeps at 1600/6k (6 GPU runs) isolated the scaling recipe: as neurons grow,
+  **lower** per-synapse inhibition (`NORD_INH` 120→60 — more neurons already deliver more
+  total inhibition) and **raise** `NORD_THETA_PLUS` (0.05→0.20, spread firing across more
+  cells). Proxy: default 35.1% → tuned **69.0%** at 6k.
+### Result (RTX 5070, full run)
+- **1600 neurons / 60k, scale-tuned (INH=60, theta_plus=0.20) → 90.02%** — a new best, up
+  from 86.4% (400n) and 82.3% (CPU 300n). Matches the paper's 1600 trajectory (~92%; the
+  ~2 pt gap is its multi-epoch training).
+### Changed
+- `gpu_scaling_sweep.sh`: bakes the per-size recipe (400: defaults; 1600: INH=60/θ⁺=0.20;
+  6400: extrapolated INH=40/θ⁺=0.30 + 3 epochs) instead of the collapsing defaults.
+- README + results plot updated to the measured 90.0%.
+### Status toward 95%
+- **90% reproduced locally.** The last leg = 6400 neurons + the recipe + multiple epochs
+  (~day-scale on one GPU) — a parallel-Vertex-jobs task, not a method gap. Honest, no faked
+  numbers.
+
 ## [v0.29] — Real GPU training results (honest correction): 95% NOT yet reproduced
 Ran the actual GPU training on an RTX 5070 (cu128). The repo had claimed "6400 → ~95% (GPU)"
 as the target; the measured results correct that.

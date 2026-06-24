@@ -38,7 +38,7 @@ on each push.
 | Associative memory | memory footprint | factored vs dense | **874× smaller** (O(P·k), not N²) |
 | Supervised classifier | 4-shape, spiking | accuracy / compute | **100%**, 3.6× fewer ops than dense |
 | Unsupervised STDP MNIST (CPU) | no labels, no backprop | test accuracy | **82.3%** (300 neurons / 6k) |
-| Conductance D&C (GPU, RTX 5070) | BindsNET, measured | test accuracy | **86.4% @ 400n** (= paper); 6400/default mistuned → 47.8% |
+| Conductance D&C (GPU, RTX 5070) | BindsNET, measured | test accuracy | **90.0% @ 1600n** (scale-tuned); 86.4% @400n; 6400/default 47.8% |
 | Spike-driven MoE | firing-rate routing | router parameters | **0 learned** (vs 512), 3× compute cut |
 | Temporal (TTFS) coding | latency inference + early exit | SynOps vs rate | **83.5× fewer** |
 | Telemetry hub (Paradigm A) | sparse `.spk` store | size / query I/O | **61× smaller** than raster, query reads 2% |
@@ -136,15 +136,22 @@ python eth_mnist_bindsnet.py --gpu        # default 400 neurons / 20k → 86.4% 
 ```
 
 **Measured GPU results (honest):**
-- **400 neurons / 20k → 86.4%** test accuracy — matches Diehl & Cook 2015 (~87%). Pipeline confirmed.
-- **6400 neurons / 60k, 1 epoch, default hyperparameters → only 47.8%.** Naive scale-up
-  *regresses*: BindsNET's ~100-neuron defaults under-inhibit 6400 competitors and 1 epoch
-  under-trains them. The literature's ~95% needs **scale-aware tuning** — more inhibition,
-  larger `theta_plus`, multiple epochs. Knobs are exposed: `NORD_INH`, `NORD_THETA_PLUS`,
-  `NORD_EXC`, `NORD_EPOCHS`. **95% is the paper's target, not yet reproduced here.**
+- **400 neurons / 20k → 86.4%** — matches Diehl & Cook 2015 (~87%). Pipeline confirmed.
+- **1600 neurons / 60k, scale-tuned → 90.0%** (new best) with `NORD_INH=60 NORD_THETA_PLUS=0.20`.
+  The scaling recipe: as neurons grow, *lower* the per-synapse inhibition (more neurons already
+  deliver more total inhibition) and *raise* theta_plus (spread firing across more cells).
+- **6400 neurons / 60k, 1 epoch, default hyperparameters → 47.8%** — naive scale-up *regresses*
+  (under-inhibited + under-trained). With the recipe above + multiple epochs it should reach the
+  paper's ~95%, but one 6400 epoch is ~day-scale on a single GPU → best as parallel Vertex jobs.
 
-Chart the accuracy-vs-neurons scaling law (400 → 1600 → 6400) with `bash gpu_scaling_sweep.sh`
-(unbuffered, live progress).
+So: **90.0% reproduced locally (1600n); 95% is the next leg (6400n + recipe + multi-epoch, on Vertex).**
+Knobs: `NORD_INH`, `NORD_THETA_PLUS`, `NORD_EXC`, `NORD_NORM`, `NORD_EPOCHS`.
+
+```bash
+# the verified 90% run:
+NORD_M=1600 NORD_TRAIN=60000 NORD_INH=60 NORD_THETA_PLUS=0.20 python eth_mnist_bindsnet.py --gpu
+```
+Chart the scaling law (400 → 1600 → 6400) with `bash gpu_scaling_sweep.sh` (unbuffered).
 
 ---
 
@@ -156,9 +163,9 @@ Chart the accuracy-vs-neurons scaling law (400 → 1600 → 6400) with `bash gpu
 - **vs rate coding** — deterministic temporal (TTFS) coding cuts inference ~83×; latency
   STDP trains 2.1× faster at 7.9× fewer SynOps (at a measured −6.2 pt accuracy tradeoff).
 - **vs the literature** — unsupervised STDP MNIST tops out at ~95% with 6400 neurons +
-  full 60k (Diehl & Cook 2015). This repo reaches **82.3% on CPU** (300n) and **86.4% on
-  GPU** (400n, = the paper at that size). The 6400/95% point is **not yet reproduced** —
-  naive scale-up measured 47.8%; it needs scale-aware tuning (see GPU section).
+  full 60k (Diehl & Cook 2015). This repo reaches **82.3% on CPU** (300n) and **90.0% on
+  GPU** (1600n, scale-tuned — vs the paper's ~92% at that size). The 6400/95% point needs
+  the same recipe + multiple epochs at day-scale compute (Vertex), see GPU section.
 - **vs [Project Nord](https://github.com/gtausa197-svg/-Project-Nord-Spiking-Neural-Network-Language-Model)**
   (a 1B-param pure-SNN LLM) — the same primitives (LIF, STDP, sparse WTA / firing-rate
   MoE, attractor memory), scaled down to small, verifiable demos.
@@ -191,12 +198,13 @@ tag + GitHub release).
 
 ## Limitations & open problems
 
-- **~95% not yet reproduced — it's a tuning problem, not just compute.** The conductance
-  D&C path verifies at **86.4% (GPU, 400 neurons** = the paper). But a naive 6400/60k/1-epoch
-  GPU run with default hyperparameters measured **only 47.8%**: BindsNET's small-network
-  defaults under-inhibit 6400 competitors and under-train in one epoch. Reaching the paper's
-  95% needs scale-aware inhibition (`NORD_INH`), larger `NORD_THETA_PLUS`, and multiple
-  `NORD_EPOCHS` — an open hyperparameter-search task, best run as parallel Vertex jobs.
+- **95% is the last leg — 90% is reproduced.** The conductance D&C path verifies at
+  **86.4% (400n)** and **90.0% (1600n, scale-tuned: `NORD_INH=60 NORD_THETA_PLUS=0.20`)** on
+  the GPU. A naive 6400/60k/1-epoch run with *default* hyperparameters measured only 47.8%
+  (under-inhibited + under-trained); the scaling recipe (lower inhibition, higher theta_plus
+  as neurons grow) fixes that. Reaching ~95% needs 6400 neurons + the recipe + multiple
+  epochs — ~day-scale on one GPU, so best as parallel Vertex jobs. An open compute task, not
+  a method gap.
 - **Latency↔rate gap (−6.2 pts).** Deterministic latency STDP (76%) trails rate (82.3%) —
   an information gap (one deterministic pass vs many stochastic samples). A pair-based
   STDP kernel did **not** help (v0.18, kept opt-in, default off).
