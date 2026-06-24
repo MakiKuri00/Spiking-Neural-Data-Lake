@@ -67,7 +67,7 @@ Trainable models (learn the representations):
 | Spike-driven MoE + STDP | firing-rate routing over expert pops | `snn_moe_stdp_mnist.py` | 0-param router |
 | GeNN custom plasticity | v0.17 rule as a CUDA weight-update model | `snn_mnist_stdp_genn.py` | GPU port |
 
-![Results by version](assets/results.svg)
+![Results by version](assets/results.svg?v=0.30)
 
 ---
 
