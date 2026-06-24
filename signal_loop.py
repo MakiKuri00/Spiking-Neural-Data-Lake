@@ -28,6 +28,12 @@ zero-startup template baseline.
   cat windows.csv | python signal_loop.py --stdin  # exercise the wire contract, no hardware
   python signal_loop.py --enroll GRIPPER_CLOSE     # record a reference into signatures.json
 
+Continual learning: non-matching (novel) signals are recorded to data/unknowns.jsonl.
+A signal that recurs >= MIN_SUPPORT times can be clustered and promoted into a new
+signature — the loop grows its own vocabulary instead of silently dropping unknowns.
+  python signal_loop.py --learn                    # cluster unknowns -> new DISCOVERED_n signatures
+  python signal_loop.py --learn-as WAVE            # name the largest discovered cluster 'WAVE'
+
 Arduino wire contract (full spec + example sketch in docs/arduino_contract.md):
   115200 8N1, newline-terminated lines of comma/space-separated floats. Direct mode
   (default) = one N-feature window per line; windowed mode (--window W) = W lines of
@@ -40,13 +46,16 @@ import json
 import gzip
 import math
 import random
+import zlib
 
 from spike_preprocessing import encode_latency, van_rossum_distance, N, T
 
 SIG_PATH = os.path.join(".", "data", "signatures.json")
 LAKE_PATH = os.path.join(".", "data", "lake.spc")
+UNK_PATH = os.path.join(".", "data", "unknowns.jsonl")   # novel signals, awaiting learning
 RATIO = float(os.environ.get("LOOP_RATIO", 0.85))   # match only if best < RATIO*second
 NOISE = float(os.environ.get("LOOP_NOISE", 0.08))   # simulated sensor jitter
+MIN_SUPPORT = int(os.environ.get("LOOP_MIN_SUPPORT", 3))  # repeats before a novel -> new signature
 
 # Default command library (the Interpreter maps these labels -> JOINT_A_ROTATE, etc.)
 COMMANDS = ["JOINT_A_ROTATE", "JOINT_B_ROTATE", "GRIPPER_CLOSE", "GRIPPER_OPEN", "HOME"]
@@ -62,8 +71,9 @@ def normalize(vec):
 
 
 def _proto(label, rng):
-    """Deterministic reference vector for a command label."""
-    r = random.Random(hash(label) & 0xFFFFFFFF)
+    """Deterministic reference vector for a command label. crc32 (not hash()) so it is
+    stable across processes — a saved signatures.json must reproduce next run."""
+    r = random.Random(zlib.crc32(label.encode()))
     return [r.random() if r.random() < 0.45 else 0.0 for _ in range(N)]
 
 
@@ -189,6 +199,78 @@ def build_learned_matcher(library):
     return match
 
 
+# ---- continual learning: record non-matching signals, cluster, promote ------
+def record_unknown_line(seq, dist, window, path=UNK_PATH):
+    """Append one novel/rejected window to the unknowns store for later learning."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"seq": seq, "dist": round(dist, 4),
+                            "vec": [round(v, 4) for v in window]}) + "\n")
+
+
+def _mean(vecs):
+    n = len(vecs)
+    return [sum(col) / n for col in zip(*vecs)]
+
+
+def _auto_radius(library):
+    """Typical same-gesture Van Rossum distance (ref vs a jittered copy) x2.5 —
+    the cluster radius scales with the data, not a magic constant."""
+    rng = random.Random(0)
+    ds = []
+    for v in library.values():
+        a = encode_latency(v)
+        b = encode_latency([min(1.0, max(0.0, x + rng.uniform(-NOISE, NOISE))) for x in v])
+        ds.append(van_rossum_distance(a, b))
+    # x1.5: room for within-gesture spread, but below the inter-gesture gap (~x1.85)
+    # so unrelated noise stays in its own singleton clusters, not absorbed.
+    return (sum(ds) / len(ds)) * 1.5 if ds else 4.0
+
+
+def cluster_unknowns(rows, library, min_support=MIN_SUPPORT, radius=None):
+    """Greedy single-link cluster of recorded unknown windows (Van Rossum distance).
+    A signal that recurs >= min_support times is a candidate new gesture.
+    Returns promoted clusters [{vec: mean, size: k}] sorted by size desc."""
+    radius = _auto_radius(library) if radius is None else radius
+    clusters = []                                    # {members:[vec], enc: encoded mean}
+    for r in rows:
+        v = r["vec"]
+        e = encode_latency(v)
+        best, bd = None, float("inf")
+        for c in clusters:
+            d = van_rossum_distance(e, c["enc"])
+            if d < bd:
+                bd, best = d, c
+        if best is not None and bd <= radius:
+            best["members"].append(v)
+            best["enc"] = encode_latency(_mean(best["members"]))
+        else:
+            clusters.append({"members": [v], "enc": e})
+    promoted = [{"vec": _mean(c["members"]), "size": len(c["members"])}
+                for c in clusters if len(c["members"]) >= min_support]
+    promoted.sort(key=lambda p: -p["size"])
+    return promoted, len(clusters), radius
+
+
+def learn_unknowns(library, persist=True, label=None):
+    """Cluster the recorded unknowns; promote recurring ones into the signature
+    library (the 'learned' step). Optional `label` names the largest new cluster."""
+    if not os.path.exists(UNK_PATH):
+        return {}, 0, 0
+    rows = [json.loads(l) for l in open(UNK_PATH, encoding="utf-8") if l.strip()]
+    promoted, n_clusters, _ = cluster_unknowns(rows, library)
+    base = sum(1 for k in library if k.startswith("DISCOVERED_"))
+    added = {}
+    for i, p in enumerate(promoted):
+        name = label if (label and i == 0) else f"DISCOVERED_{base + i + 1}"
+        library[name] = p["vec"]
+        added[name] = p["size"]
+    if persist and added:
+        save_library(library)
+        open(UNK_PATH, "w").close()                  # consumed -> avoid re-discovering
+    return added, len(rows), n_clusters
+
+
 # ---- data lake: persist the encoded incoming stream (audit / re-query) ------
 def flush_lake(events):
     """Append the session's encoded windows to a gzip .spc lake (storage-cheap)."""
@@ -205,7 +287,7 @@ def flush_lake(events):
 
 
 # ---- the loop ---------------------------------------------------------------
-def run(source, library, matcher=None, emit=True):
+def run(source, library, matcher=None, emit=True, on_unknown=None):
     match = matcher or build_matcher(library)
     lake = []
     stats = {"events": 0, "matched": 0, "correct": 0, "rejected": 0, "labeled": 0}
@@ -219,6 +301,8 @@ def run(source, library, matcher=None, emit=True):
                 stats["correct"] += 1
         else:
             stats["rejected"] += 1
+            if on_unknown:                          # record the non-matching signal to learn later
+                on_unknown(stats["events"], d, window)
         if true_lab is not None:
             stats["labeled"] += 1
         if emit:   # JSON line -> Interpreter reads stdin
@@ -242,6 +326,20 @@ def main():
         print(f"enrolled '{label}' -> {SIG_PATH} ({len(library)} signatures)")
         return
 
+    if "--learn" in args or "--learn-as" in args:
+        # cluster recorded non-matching signals; promote recurring ones to signatures
+        label = args[args.index("--learn-as") + 1] if "--learn-as" in args else None
+        added, n_rows, n_clusters = learn_unknowns(library, persist=True, label=label)
+        if added:
+            print(f"learned {len(added)} signature(s) from {n_rows} unknowns "
+                  f"({n_clusters} clusters): "
+                  + ", ".join(f"{k} (x{v})" for k, v in added.items()))
+            print(f"library now {len(library)}: {list(library)}")
+        else:
+            print(f"nothing learned: {n_rows} unknowns in {n_clusters} clusters "
+                  f"(need >= {MIN_SUPPORT} similar repeats). collect more, then --learn")
+        return
+
     # matcher: hybrid (learned + novelty gate) is the DEFAULT; --fast = template
     fast = "--fast" in args
     if not fast:
@@ -255,17 +353,20 @@ def main():
         baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
         sys.stderr.write(f"reading {port}@{baud} window={window}, {len(library)} "
                          f"signatures, matcher={matcher_name}\n")
-        run(serial_stream(port, baud, window), library, matcher)   # until interrupted
+        run(serial_stream(port, baud, window), library, matcher,
+            on_unknown=record_unknown_line)                        # until interrupted
         return
 
     if "--stdin" in args:
         sys.stderr.write(f"reading stdin window={window}, matcher={matcher_name}\n")
-        run(stdin_stream(window), library, matcher)                # until EOF
+        run(stdin_stream(window), library, matcher, on_unknown=record_unknown_line)  # EOF
         return
 
     # default: simulated stream + report + self-check
+    if os.path.exists(UNK_PATH):
+        open(UNK_PATH, "w").close()                  # fresh unknowns bin for the demo
     src = simulated_stream(library, 40, seed=0)
-    stats, lake = run(src, library, matcher, emit=True)
+    stats, lake = run(src, library, matcher, emit=True, on_unknown=record_unknown_line)
     raw, gz = flush_lake(lake)
     acc = stats["correct"] / max(1, stats["labeled"])
 
@@ -277,6 +378,8 @@ def main():
     sys.stderr.write(f"events       : {stats['events']} ({stats['labeled']} known, "
                      f"{stats['events']-stats['labeled']} novel)\n")
     sys.stderr.write(f"matched      : {stats['matched']}  rejected: {stats['rejected']}\n")
+    sys.stderr.write(f"recorded     : {stats['rejected']} novel -> {UNK_PATH} "
+                     f"(run `--learn` to cluster + enroll them)\n")
     sys.stderr.write(f"accuracy     : {acc:.0%} on known signals (chance "
                      f"{1/len(library):.0%})\n")
     sys.stderr.write(f"data lake    : {len(lake)} encoded windows, {raw} B -> {gz} B gzip\n")
@@ -299,6 +402,24 @@ def main():
     assert len(wins) == 3 and all(len(w[1]) == N for w in wins), "windower shape wrong"
     sys.stderr.write("self-check OK: known matched, novel rejected, lake stored, "
                      "wire contract parses\n")
+
+    # ---- continual-learning self-check: novel recurring gesture -> learn -> match
+    rng = random.Random(1)
+    newg = _proto("NEW_GESTURE", None)               # a gesture NOT in the library
+    pre = build_matcher(library)(newg)[0]            # unknown today -> should be rejected
+    rows = [{"vec": [min(1.0, max(0.0, v + rng.uniform(-NOISE, NOISE))) for v in newg]}
+            for _ in range(MIN_SUPPORT + 2)]         # it recurs a few times (gets recorded)
+    rows += [{"vec": [rng.random() for _ in range(N)]} for _ in range(4)]  # scattered noise
+    promoted, n_clusters, _ = cluster_unknowns(rows, library)
+    lib2 = dict(library)
+    for i, p in enumerate(promoted):
+        lib2[f"DISCOVERED_{i + 1}"] = p["vec"]       # learn them into a copy
+    post = build_matcher(lib2)(newg)[0]              # same gesture now matches
+    assert pre is None, "new gesture should start novel (rejected)"
+    assert promoted, "recurring novel gesture was not discovered"
+    assert post and post.startswith("DISCOVERED"), "learned gesture not matched after learning"
+    sys.stderr.write(f"continual-learning OK: novel rejected -> recorded -> clustered "
+                     f"({len(promoted)} new, scattered noise ignored) -> now matches '{post}'\n")
 
 
 if __name__ == "__main__":

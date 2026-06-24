@@ -3,6 +3,23 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.33] — Continual learning: record non-matching signals, cluster, promote to new signatures
+The robot-arm loop no longer drops unknowns — it grows its own vocabulary.
+### Added
+- `signal_loop.py`: novel/rejected windows are recorded **live** to `data/unknowns.jsonl`
+  (`record_unknown_line`, wired into every run). `--learn` clusters the unknowns by Van
+  Rossum distance and promotes any signal that recurs ≥ `MIN_SUPPORT` (default 3) into a new
+  signature (`DISCOVERED_n`); `--learn-as NAME` names the largest cluster. Scattered noise
+  stays in singleton clusters and is ignored.
+- Self-check proves the full loop: a novel gesture is rejected → recorded → clustered →
+  matched after learning, with noise excluded.
+### Fixed
+- Cluster radius was intra-distance ×2.5 (≈6.8) — wider than the inter-gesture gap (~5), so
+  noise polluted gesture centroids and the learned signature failed to re-match. Now ×1.5
+  (below the gap); noise stays separate.
+- `_proto` used Python `hash()` (per-process randomized) → the default signature library was
+  non-deterministic across runs. Now `crc32`-seeded; a saved `signatures.json` reproduces.
+
 ## [v0.32] — First real-world application: robot-arm signal loop (encode → lake → match → Interpreter)
 The repo's primitives wired into a live closed-loop application. Shipped flat (no app
 branches — branches are for in-progress work, not parallel apps; a `core/`+`apps/` monorepo

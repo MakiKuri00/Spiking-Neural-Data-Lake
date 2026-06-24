@@ -80,7 +80,7 @@ Shipped flat in one repo (one `main`, linear tags) — apps move to `core/` + `a
 
 | Application | What it does | Files |
 |-------------|--------------|-------|
-| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. | `signal_loop.py`, `learned_matcher.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
+| **Robot-arm signal loop** | live closed loop: signal → encode → data lake → match → JSON to an Interpreter that drives the arm. Hybrid matcher (learned + novelty gate) default; `--fast` = template; `--serial`/`--stdin` input. **Continual learning**: novel signals are recorded and, once they recur, `--learn` promotes them to new signatures. | `signal_loop.py`, `learned_matcher.py`, [`docs/arduino_contract.md`](docs/arduino_contract.md) |
 | **Event-camera ingestion** | real N-MNIST DVS events → Bronze → raster → classify (71%, no learning) | `nmnist_ingest.py` |
 | Research / demos | the 3 paradigms + trainable models above | `spike_telemetry_hub.py`, `paradigm_b_engine.py`, `spike_knowledge_graph*.py`, `snn_mnist_*.py`, … |
 
