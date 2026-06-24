@@ -62,7 +62,7 @@ Trainable models (learn the representations):
 | Model | Mechanism | File | Headline |
 |-------|-----------|------|----------|
 | Unsupervised STDP | rate-coded, adaptive threshold, hard-WTA | `snn_mnist_stdp.py` | 82.3% CPU |
-| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `eth_mnist_bindsnet.py` | 86.4% @400n (verified); 95% target needs scale-tuning |
+| Conductance Diehl & Cook | exc/inh populations, BindsNET, GPU | `eth_mnist_bindsnet.py` | **90.0% @1600n** (scale-tuned); 95% via 6400 + multi-epoch |
 | Latency STDP | deterministic, precomputed, burst+x_tar | `snn_mnist_stdp_fast.py` | 76%, 2.1× faster |
 | Spike-driven MoE + STDP | firing-rate routing over expert pops | `snn_moe_stdp_mnist.py` | 0-param router |
 | GeNN custom plasticity | v0.17 rule as a CUDA weight-update model | `snn_mnist_stdp_genn.py` | GPU port |
