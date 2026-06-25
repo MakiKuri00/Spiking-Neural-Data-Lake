@@ -27,7 +27,14 @@ zero-startup template baseline.
   python signal_loop.py --serial COM3 --window 8   # buffer 8 raw lines -> 1 window
   cat windows.csv | python signal_loop.py --stdin  # exercise the wire contract, no hardware
   python signal_loop.py --serial COM3 --reflex     # instinctive STOP/WITHDRAW on danger channels
+  python signal_loop.py --serial COM3 --reflex --feedback   # full closed loop (below)
   python signal_loop.py --enroll GRIPPER_CLOSE     # record a reference into signatures.json
+
+Feedback loop (--feedback): the Interpreter sends outcomes BACK into the loop's input
+as `OUTCOME <reward>` lines (reward in [-1,+1], good=+, bad=-), applied to the last acted
+signal. These drive dopamine learning (RPE) and a cortisol stress level; cortisol then
+modulates the reflex threshold (hypervigilance) and the matcher's caution bias LIVE. Mix
+signal lines and OUTCOME lines on the same input stream.
 
 Continual learning: non-matching (novel) signals are recorded to data/unknowns.jsonl.
 A signal that recurs >= MIN_SUPPORT times can be clustered and promoted into a new
@@ -51,6 +58,8 @@ import zlib
 
 from spike_preprocessing import encode_latency, van_rossum_distance, N, T
 from reflex import Reflex, reflex_guard      # #2 instinctive fast-path (no cycle: reflex is leaf)
+from valence_stdp import ValenceLearner      # #3 RPE dopamine (leaf: only imports spike_preprocessing)
+from cortisol import Cortisol                # slow tonic stress (leaf: only os/math)
 
 SIG_PATH = os.path.join(".", "data", "signatures.json")
 LAKE_PATH = os.path.join(".", "data", "lake.spc")
@@ -317,6 +326,72 @@ def run(source, library, matcher=None, emit=True, on_unknown=None):
     return stats, lake
 
 
+# ---- outcome feedback channel (Interpreter -> loop) -------------------------
+def parse_outcome(line):
+    """Interpreter feedback line: 'OUTCOME <reward>' (reward in [-1,+1], good=+, bad=-),
+    applied to the most recent acted signal. Returns the reward, or None if not an outcome."""
+    s = line.strip()
+    if not s.upper().startswith("OUTCOME"):
+        return None
+    try:
+        return max(-1.0, min(1.0, float(s.split()[1])))
+    except (IndexError, ValueError):
+        return None
+
+
+def serial_lines(port, baud):
+    """Raw text lines from a serial port (for the feedback loop). Guarded import."""
+    import serial
+    ser = serial.Serial(port, baud, timeout=1)
+    while True:
+        line = ser.readline().decode("ascii", "ignore")
+        if line:
+            yield line
+
+
+def run_live(lines, library, matcher, reflex, valence, cortisol,
+             base_threshold=0.10, emit=None, on_unknown=None):
+    """Closed loop WITH outcome feedback. Each input line is either a signal window
+    (CSV/space floats) or an Interpreter outcome ('OUTCOME <r>'). Live coupling:
+      - cortisol scales the reflex threshold (hypervigilance) and the matcher's caution bias
+      - a reflex firing is itself an aversive stressor
+      - each OUTCOME drives dopamine learning (RPE) on the last acted window and moves stress
+      - quiet signal ticks let cortisol decay (recovery)."""
+    if emit is None:
+        def emit(d):
+            print(json.dumps(d)); sys.stdout.flush()
+    last_window = None
+    seq = 0
+    for line in lines:
+        r = parse_outcome(line)
+        if r is not None:                                 # ---- Interpreter feedback ----
+            if last_window is not None:
+                delta = valence.learn(last_window, r, lr_scale=cortisol.learn_rate_scale(r))
+                stress = cortisol.step(max(0.0, -r))      # bad outcome raises stress
+                emit({"outcome": r, "dopamine": round(delta, 3), "stress": round(stress, 3)})
+            continue
+        p = parse_line(line)
+        if p is None:
+            continue
+        seq += 1
+        if reflex is not None:                            # ---- reflex (cortisol-sharpened) ----
+            reflex.threshold = base_threshold * cortisol.reflex_threshold_scale()
+            act = reflex.step(p)
+            if act:
+                stress = cortisol.step(1.0)               # reflex firing is itself stressful
+                emit({"t": seq, "reflex": act, "preempt": True, "stress": round(stress, 3)})
+                continue
+        window = normalize(resize_to_n(p))                # ---- recognize + valence overlay ----
+        label, d, _, _ = matcher(window)
+        v_action, v = valence.act(window, bias=cortisol.caution_bias())
+        last_window = window
+        if label is None and on_unknown:
+            on_unknown(seq, d, window)
+        stress = cortisol.step(0.0)                        # quiet tick -> recovery
+        emit({"t": seq, "match": label, "dist": round(d, 3),
+              "instinct": v_action, "valence": round(v, 3), "stress": round(stress, 3)})
+
+
 def main():
     args = sys.argv[1:]
     library = load_library()
@@ -362,6 +437,22 @@ def main():
 
     if reflex:
         sys.stderr.write(f"reflex fast-path ON: {reflex.rules}\n")
+
+    # --feedback: full closed loop with dopamine learning + cortisol stress modulation
+    if "--feedback" in args:
+        valence = ValenceLearner()
+        cortisol = Cortisol()
+        m = matcher or build_matcher(library)
+        sys.stderr.write("feedback loop ON: 'OUTCOME <r>' lines drive dopamine; "
+                         "cortisol modulates reflex + caution live\n")
+        if "--serial" in args:
+            port = args[args.index("--serial") + 1]
+            baud = int(args[args.index("--baud") + 1]) if "--baud" in args else 115200
+            lines = serial_lines(port, baud)
+        else:
+            lines = sys.stdin
+        run_live(lines, library, m, reflex, valence, cortisol, on_unknown=record_unknown_line)
+        return
 
     if "--serial" in args:
         port = args[args.index("--serial") + 1]
@@ -436,6 +527,26 @@ def main():
     assert post and post.startswith("DISCOVERED"), "learned gesture not matched after learning"
     sys.stderr.write(f"continual-learning OK: novel rejected -> recorded -> clustered "
                      f"({len(promoted)} new, scattered noise ignored) -> now matches '{post}'\n")
+
+    # ---- live feedback self-check: outcomes drive dopamine + cortisol (no hardware) ------
+    fb_lib = build_default_library()
+    gv = _proto("FB_GOOD", None)
+    gline = ",".join(f"{x:.4f}" for x in gv)
+    gw = normalize(resize_to_n([float(x) for x in gline.split(",")]))
+    vlA, ctA = ValenceLearner(), Cortisol(tau=20.0)
+    fbA = [x for _ in range(30) for x in (gline, "OUTCOME 1.0")]      # signal then +reward x30
+    run_live(iter(fbA), fb_lib, build_matcher(fb_lib), None, vlA, ctA, emit=lambda d: None)
+    assert vlA.act(gw, bias=ctA.caution_bias())[0] == "APPROACH", "no APPROACH learned from +reward"
+    assert ctA.level < 0.2, "good outcomes should not raise stress"
+    vlB, ctB = ValenceLearner(), Cortisol(tau=20.0)
+    fbB = [x for _ in range(20) for x in (gline, "OUTCOME -1.0")]     # signal then -reward x20
+    run_live(iter(fbB), fb_lib, build_matcher(fb_lib), None, vlB, ctB, emit=lambda d: None)
+    assert vlB.act(gw)[0] == "AVOID", "no AVOID learned from -reward"
+    assert ctB.level > 0.4, "bad outcomes should raise cortisol stress"
+    assert ctB.reflex_threshold_scale() < 1.0, "stress should sharpen the reflex"
+    assert parse_outcome("OUTCOME 0.5") == 0.5 and parse_outcome("500,500") is None, "outcome parse"
+    sys.stderr.write("feedback self-check OK: outcomes drive dopamine (APPROACH/AVOID) + "
+                     "cortisol stress; stress sharpens the reflex live\n")
 
 
 if __name__ == "__main__":

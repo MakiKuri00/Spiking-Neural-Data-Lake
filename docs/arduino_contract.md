@@ -46,6 +46,23 @@ window for the Interpreter to consume:
 ```
 `match` is `null` + `confident:false` when the signal is novel/ambiguous (no command fired).
 
+## Feedback channel (Interpreter → loop, `--feedback`)
+With `--feedback` the loop closes: after the Interpreter executes a command and observes the
+result, it sends an **outcome** back into the loop's input stream (same channel as signals):
+```
+OUTCOME 1.0      # that action was good   (reward in [-1, +1], applied to the last acted signal)
+OUTCOME -1.0     # that action was bad
+```
+Outcomes drive **dopamine** learning (reward-prediction-error) and a **cortisol** stress
+level; cortisol then modulates the reflex threshold and the matcher's caution bias live. The
+loop emits the neuromodulator state per event:
+```json
+{"outcome": -1.0, "dopamine": -1.0, "stress": 0.3}
+{"t": 51, "match": "HOME", "instinct": "AVOID", "valence": -0.42, "stress": 0.28}
+```
+Mix `OUTCOME` lines and signal lines on the same stream. (Serial reads outcomes the same way;
+the Interpreter or a small bridge injects them onto the loop's input.)
+
 ## Throughput
 One matched command per window. Window rate = (Arduino line rate) ÷ `W`. Match latency is
 dominated by the Van Rossum gate + (hybrid) the spiking forward pass — sub-millisecond per

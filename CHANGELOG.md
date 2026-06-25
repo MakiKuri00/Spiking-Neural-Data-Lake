@@ -3,6 +3,26 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.36] — Closed loop: dopamine + cortisol wired into the live signal loop
+The v0.35 neuromodulators now run *inside* the live loop via an outcome feedback channel.
+### Added
+- **Outcome feedback channel**: the Interpreter sends `OUTCOME <reward>` lines (reward in
+  [-1,+1], good=+, bad=-) back into the loop's input, applied to the last acted signal
+  (`parse_outcome`). Same stream as signals, distinguished by prefix.
+- **`run_live()`**: closed loop over interleaved signal + OUTCOME lines. Outcomes drive
+  **dopamine** RPE learning and move a **cortisol** stress level. Cortisol modulates LIVE:
+  reflex threshold (hypervigilance), matcher caution bias (more AVOID under stress), and the
+  aversive learning rate. A reflex firing is itself a stressor; quiet ticks let stress recover.
+- **`--feedback`** mode (stdin + serial via `serial_lines`).
+- Feedback self-check (no hardware): +reward → APPROACH (low stress); −reward → AVOID +
+  rising cortisol → sharpened reflex. 19/19 CI green.
+### Changed
+- `docs/arduino_contract.md`: added the Feedback-channel section (OUTCOME protocol + the
+  emitted neuromodulator state `{outcome,dopamine,stress}` / `{match,instinct,valence,stress}`).
+### Note
+- `--stdin` piping under PowerShell can drop display lines (a shell quirk); the in-process
+  loop and `--serial` (pyserial) are unaffected.
+
 ## [v0.35] — Neuromodulators: RPE dopamine + cortisol stress-state
 Upgraded the learned-instinct layer into the brain's actual fast/slow neuromodulator pair.
 ### Changed
