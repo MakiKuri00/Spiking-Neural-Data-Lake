@@ -3,6 +3,15 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.38] — Docs: unified local + cloud runbook
+### Added
+- `docs/RUNNING.md`: one guide to run the data lake **locally** (zero-dep core, the robot-arm
+  closed loop, the Medallion lakehouse PoC, real N-MNIST, GPU training, the graph) and on
+  **GCP** (Terraform → Dataproc Serverless → BigQuery/BigLake → Vertex AI → Pub/Sub/Dataflow →
+  Composer), with a local→cloud mapping table and the `bronze.parquet` bridge between them.
+- README: Quickstart links the runbook.
+(Docs only — no code change; graph unchanged.)
+
 ## [v0.37] — The Interpreter + the loop closed end-to-end
 Built the downstream Interpreter box and closed the whole reaction loop on one machine.
 ### Added

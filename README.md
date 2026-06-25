@@ -137,6 +137,9 @@ spiking-neural-data-lake/
 
 ## Quickstart
 
+> **Full local + cloud runbook: [docs/RUNNING.md](docs/RUNNING.md)** — zero-dep core, the
+> robot-arm closed loop, the Medallion lakehouse, real N-MNIST, GPU training, and the GCP path.
+
 ```bash
 # Pure-stdlib — no install needed (these run in CI):
 python spiking_storage_prototype.py      # associative memory + savings
