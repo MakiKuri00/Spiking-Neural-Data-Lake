@@ -3,6 +3,27 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.37] — The Interpreter + the loop closed end-to-end
+Built the downstream Interpreter box and closed the whole reaction loop on one machine.
+### Added
+- `interpreter.py`: matched signature label → concrete robot command (`JOINT_A_ROTATE(+15deg)`,
+  `GRIPPER_CLOSE`, …) + reflex map (`STOP→EMERGENCY_STOP`, `WITHDRAW→RETRACT_ALL`). Priority:
+  **reflex preempts > AVOID instinct vetoes (HOLD) > confident match executes**. Honest reward
+  policy (placeholder): reflex −1, veto −0.3, exec 0 (+0.5 with `--assume-success`). `--pipe`
+  reads loop JSON on stdin → commands to stdout, `OUTCOME` to a back-channel.
+- `closed_loop.py`: the full stack wired in-process with LIVE reward feedback (signal → reflex →
+  match → valence → Interpreter → reward → dopamine + cortisol). Verified episode: a rewarded
+  gesture's value rises to **APPROACH**; a collision → **EMERGENCY_STOP** + cortisol stress →
+  sharpened reflex. Loop closed.
+### CI
+- `interpreter` + `closed_loop` added → **21 stdlib self-checks**, green.
+### Scope (honest)
+- Reward policy is a placeholder (real reward needs the arm reporting task success). Causal credit
+  assignment (did a command *cause* the danger?) is deliberately not done — a collision raises
+  stress, it doesn't blame the prior gesture. Live split-process wiring
+  (`signal_loop --feedback | interpreter --pipe`) needs a FIFO/socket back-channel; `closed_loop.py`
+  proves the loop in-process.
+
 ## [v0.36] — Closed loop: dopamine + cortisol wired into the live signal loop
 The v0.35 neuromodulators now run *inside* the live loop via an outcome feedback channel.
 ### Added
