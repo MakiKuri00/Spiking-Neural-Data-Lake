@@ -17,10 +17,8 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
 
   if (!mlx.begin()) {
-    Serial.println("Failed to find MLX90614!");
-    while (1); 
+    while (1) { delay(1000); }
   }
-  Serial.println("ultrasonic, temp");
 }
 
 float getDistanceM() {
@@ -39,19 +37,16 @@ float getDistanceM() {
 }
 
 void loop() {
-  float d = getDistanceM(); // Object's distance from sensor
+  float d = getDistanceM(); // measure distance
   Serial.print(d);
   Serial.print(", ");
   if (d <= 3.00) {
-    // measure temp
-    double currentTemp = mlx.readObjectTempC();
-    Serial.print(currentTemp);
+    // measure temperature (K)
+    Serial.print(mlx.readObjectTempC() + 273.15);
   } else {
     // idle
-    Serial.print("___");
+    Serial.print(-1);
   }
-
   Serial.println();
   delay(100);
-  
 }
