@@ -3,6 +3,19 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.41] — Streaming hub (live append + record-while-query) + capacity cliff mapped
+### Added
+- `streaming_hub.py`: the streaming counterpart to the batch telemetry hub. Durable append-only
+  `.spkl` log (8 B/event, flushed per event) + a live in-memory per-channel index → record
+  **while** querying; restart `replay()`s the log to rebuild the index (crash recovery). The
+  single-machine version of the Pub/Sub → Dataflow → Bronze path.
+### Changed
+- `test_prototype.py` `capacity_sweep` extended past 3×N to find the recall cliff: holds to ~80
+  patterns (99.8%), knee ~128–192 (**0.5–0.8× N**), degrades to 35.6% at 768. (The factored
+  memory holds far more than the classic Hebbian "few % of N".)
+### CI
+- `streaming_hub` added → **15 core stdlib self-checks**, green.
+
 ## [v0.40] — Split: core on `main`, robot-arm application on the `robot-arm` branch
 `main` is now the spiking **data lake + SNN core** only. The robot-arm **application** moved to
 the [`robot-arm` branch](../../tree/robot-arm) (where collaborator hardware work already lives).
