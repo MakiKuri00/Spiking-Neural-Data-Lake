@@ -2,8 +2,8 @@
 #include <Adafruit_MLX90614.h>
 
 const int C = 2;
-int TRIG_PIN = 12;
-int ECHO_PIN = 11;
+int TRIG_PIN = 23;
+int ECHO_PIN = 19;
 
 int THERMO_SCL = 21;
 int THERMO_SDA = 22;
