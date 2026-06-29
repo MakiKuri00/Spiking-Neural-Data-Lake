@@ -3,6 +3,16 @@
 All notable changes to the Spiking Neural Data Lake. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); each version is a git tag.
 
+## [v0.42] — Unified: core + robot-arm application merged back onto `main`
+Reverses the v0.40 split — `main` now holds the **whole project** again: the data-lake/SNN
+core *and* the robot-arm application (signal loop, hybrid matcher, reflex, RPE dopamine,
+cortisol, the Interpreter, the closed loop) plus the builder sensor work (incl. MakiKuri00's
+`robot arm/sensor/sensor.ino`). The `robot-arm` branch stays on the remote for the
+collaborator; everything it held now lives on `main`.
+### Changed
+- CI restored to the **full self-check matrix** (core + app).
+- README + `docs/RUNNING.md`: the application runs from `main` (no branch checkout).
+
 ## [v0.41] — Streaming hub (live append + record-while-query) + capacity cliff mapped
 ### Added
 - `streaming_hub.py`: the streaming counterpart to the batch telemetry hub. Durable append-only

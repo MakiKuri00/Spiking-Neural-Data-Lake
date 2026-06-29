@@ -72,16 +72,18 @@ Trainable models (learn the representations):
 
 ---
 
-## Scope: core vs application
+## Scope: one unified project
 
-**`main` (this branch) — the spiking data lake + SNN core:** storage prototypes, the three
-paradigms (telemetry hub, in-storage query, relational embeddings), the trainable STDP / D&C
-models, N-MNIST event-camera ingestion, the Medallion lakehouse, and the GCP scale-out.
+**Core — the spiking data lake + SNN:** storage prototypes, the three paradigms (telemetry hub,
+in-storage query, relational embeddings), the streaming hub (live append + record-while-query),
+the trainable STDP / D&C models, N-MNIST event-camera ingestion, the Medallion lakehouse, and
+the GCP scale-out.
 
-**Robot-arm application → [`robot-arm` branch](../../tree/robot-arm):** the real-time closed
-loop built on these primitives — signal encoding, in-lake matching, continual learning,
-instinct (reflex), neuromodulators (RPE dopamine + cortisol), the Interpreter (matched label →
-robot command), and the Arduino wire contract. Kept off `main` so the core stays focused.
+**Robot-arm application** (built on those primitives): the real-time closed loop — signal
+encoding, in-lake matching, continual learning, instinct (reflex), neuromodulators (RPE dopamine
++ cortisol), the Interpreter (matched label → robot command), and the Arduino wire contract +
+the builder's sensor work. All on `main`. (The `robot-arm` branch remains on the remote for
+collaborator hardware work; its contents are merged here.)
 
 ---
 

@@ -30,16 +30,23 @@ python spike_knowledge_graph.py       # Paradigm C: relational spike embeddings
 Run the whole suite (what CI runs):
 ```bash
 for f in spiking_storage_prototype test_prototype snn_classifier snn_moe_classifier \
-         temporal_coding_storage spike_telemetry_hub paradigm_b_matcher paradigm_b_engine \
-         spike_preprocessing spike_knowledge_graph spike_knowledge_graph_rotate \
-         spike_kg_relations nmnist_ingest; do python "$f.py" || break; done
+         temporal_coding_storage spike_telemetry_hub streaming_hub paradigm_b_matcher \
+         paradigm_b_engine spike_preprocessing spike_knowledge_graph \
+         spike_knowledge_graph_rotate spike_kg_relations nmnist_ingest signal_loop \
+         learned_matcher reflex valence_stdp cortisol interpreter closed_loop \
+         make_sensor_dataset sensor_demo; do python "$f.py" || break; done
 ```
 
-### 2. Robot-arm application → `robot-arm` branch
-The real-time closed loop (signal → encode → lake → match → command → reward, with reflex +
-RPE dopamine + cortisol + the Interpreter) lives on the
-[`robot-arm` branch](../../tree/robot-arm), not on `main`. Check out that branch and see its
-README to run it.
+### 2. The robot-arm closed loop (the application)
+Encode → data lake → match → command → reward → learn (with reflex + RPE dopamine + cortisol +
+the Interpreter), all zero-dep, on `main`:
+```bash
+python closed_loop.py        # full stack end-to-end: gesture -> command, collision -> STOP
+python signal_loop.py        # the loop alone (hybrid matcher) + self-check
+python interpreter.py        # matched label -> robot command + self-check
+# drive it with no hardware (outcomes back via OUTCOME lines):
+cat windows.csv | python signal_loop.py --stdin --feedback --reflex
+```
 
 ### 3. The Medallion lakehouse PoC (needs polars)
 Bronze → Silver → Gold over Parquet, the data path that scales to the cloud:
